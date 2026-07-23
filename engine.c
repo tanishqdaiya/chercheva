@@ -13,9 +13,9 @@
 #include "lib/lexbor/html/html.h"
 #include "lib/lexbor/dom/dom.h"
 
-#define DOCUMENT_VECINITSZ 1
+#define DOCUMENT_VECINITSZ 32
 
-#define TABLE_INITSZ 16
+#define TABLE_INITSZ 64
 #define TABLE_LOADF  0.5
 
 #define FNV_PRIME_32 0x01000193U
@@ -28,14 +28,9 @@ typedef struct {
 
 typedef struct {
     String_View term;
-    long freq;                  /* occupied when freq > 0 */
+    long freq; /* occupied when freq > 0 */
 } Term_Frequency;
 
-/* @Note that the table does not support deletion. If a term is deleted in this
- * open-addressed implementation by setting the frequency to zero, you will lose
- * all the collision cases with this due to the early return in the search.
- * Since our engine has not yet found a particular need for deletion, it is fine
- * for now. */
 typedef struct {
     Term_Frequency *tf;
     size_t size, alloc;
@@ -45,6 +40,8 @@ typedef struct {
     char *path;
     char *contents;
     char *text;
+
+    // @Todo Rename
     size_t length; /* for contents */
     size_t ntokens;
 
@@ -52,15 +49,67 @@ typedef struct {
 } Document;
 
 typedef struct {
-    Document *docs;
+    Document *doc;
     size_t size, alloc;
 } Document_Vector;
 
-#define PANIC(...) \
-    do { \
-        fprintf(stderr, __VA_ARGS__); \
-        exit(EXIT_FAILURE); \
+/* == UTILS == */
+
+#define FATAL(...)                              \
+    do {                                        \
+        fprintf(stderr, __VA_ARGS__);           \
+        exit(EXIT_FAILURE);                     \
     } while (0)
+
+void to_uppercase(char *str, size_t n)
+{
+    for (size_t i = 0; i < n; ++i)
+        str[i] = (char)toupper(str[i]);
+}
+
+bool sv_equal(String_View a, String_View b)
+{
+    if (a.count != b.count)
+        return false;
+    for (size_t i = 0; i < a.count; i++) {
+        if (a.data[i] != b.data[i])
+            return false;
+    }
+
+    return true;
+}
+
+int read_file(const char *path, Document *doc)
+{
+    FILE *fp = fopen(path, "rb");
+    if (!fp)
+        return 0;
+
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    rewind(fp);
+
+    char *content = malloc((size_t)size + 1);
+    if (!content)
+        return 0;
+
+    if (fread(content, 1, (size_t)size, fp) != (size_t)size) {
+        free(content);
+        fclose(fp);
+        return 0;
+    }
+
+    content[size] = '\0';
+    fclose(fp);
+
+    doc->path = strdup(path);
+    doc->contents = content;
+    doc->length = (size_t)size;
+
+    return 1;
+}
+
+/* == HTML EXTRACTION == */
 
 size_t html_measure(lxb_dom_node_t *node)
 {
@@ -122,6 +171,8 @@ char *html_extract(const char *html)
     return buf;
 }
 
+/* == LEXER == */
+
 String_View next_token(String_View *corpus)
 {
     // trim left
@@ -176,23 +227,7 @@ String_View next_token(String_View *corpus)
     return token;
 }
 
-void to_uppercase(char *str, size_t n)
-{
-    for (size_t i = 0; i < n; ++i)
-        str[i] = (char)toupper(str[i]);
-}
-
-bool sv_equal(String_View a, String_View b)
-{
-    if (a.count != b.count)
-        return false;
-    for (size_t i = 0; i < a.count; i++) {
-        if (a.data[i] != b.data[i])
-            return false;
-    }
-
-    return true;
-}
+/* == TF TABLE == */
 
 uint32_t tf_table_hash(String_View sv)
 {
@@ -213,7 +248,7 @@ Term_Frequency *tf_table_search(TF_Table *table, String_View term)
     size_t index = start;
 
     do {
-        if (table->tf[index].freq == 0)
+        if (table->tf[index].freq <= 0)
             return NULL;
 
         if (sv_equal(table->tf[index].term, term))
@@ -242,16 +277,14 @@ void tf_table_rehash(TF_Table *table, size_t needed)
     size_t old_alloc = table->alloc;
 
     Term_Frequency *new_tf = calloc(alloc, sizeof(*new_tf));
-    if (!new_tf) {
-        fprintf(stderr, "tf_table_rehash: out of memory\n");
-        exit(EXIT_FAILURE);
-    }
+    if (!new_tf)
+        FATAL("tf_table_rehash: out of memory\n");
 
     table->tf = new_tf;
     table->alloc = alloc;
 
     for (size_t i = 0; i < old_alloc; ++i) {
-        if (old_tf[i].freq == 0)
+        if (old_tf[i].freq <= 0)
             continue;
 
         /* @Todo hash cachable */
@@ -283,6 +316,8 @@ void tf_table_insert(TF_Table *table, Term_Frequency tf)
     table->size++;
 }
 
+/* == TF-IDF == */
+
 double compute_term_frequency(String_View t, Document d)
 {
     Term_Frequency *kv = tf_table_search(&d.tf, t);
@@ -296,42 +331,14 @@ double compute_inverse_document_frequency(String_View t, Document_Vector dv)
 {
     long df = 0;
     for (size_t i = 0; i < dv.size; ++i) {
-        if (tf_table_search(&dv.docs[i].tf, t))
+        if (tf_table_search(&dv.doc[i].tf, t))
             df++;
     }
 
     return log(1 + (double)dv.size / (1 + df));
 }
 
-int read_file(const char *path, Document *doc)
-{
-    FILE *fp = fopen(path, "rb");
-    if (!fp)
-        PANIC("%s: could not resolve file path!\n", path);
-
-    fseek(fp, 0, SEEK_END);
-    long size = ftell(fp);
-    rewind(fp);
-
-    char *content = malloc((size_t)size + 1);
-    if (!content)
-        PANIC("out of memory!\n");
-
-    if (fread(content, 1, (size_t)size, fp) != (size_t)size) {
-        free(content);
-        fclose(fp);
-        return 0;
-    }
-
-    content[size] = '\0';
-    fclose(fp);
-
-    doc->path = strdup(path);
-    doc->contents = content;
-    doc->length = (size_t)size;
-
-    return 1;
-}
+/* == DOCUMENT VECTOR == */
 
 static void docs_alloc(Document_Vector *dv, size_t capacity)
 {
@@ -340,9 +347,9 @@ static void docs_alloc(Document_Vector *dv, size_t capacity)
             dv->alloc = DOCUMENT_VECINITSZ;
         while (dv->alloc < capacity)
             dv->alloc *= 2;
-        dv->docs = realloc(dv->docs, dv->alloc * sizeof(*(dv)->docs));
-        if (!dv->docs)
-            PANIC("out of memory!\n");
+        dv->doc = realloc(dv->doc, dv->alloc * sizeof(*(dv)->doc));
+        if (!dv->doc)
+            FATAL("docs_alloc: out of memory!\n");
     }
 }
 
@@ -357,11 +364,11 @@ void doc_free(Document *d)
 void docs_free(Document_Vector *dv)
 {
     for (size_t i = 0; i < dv->size; ++i)
-        doc_free(&dv->docs[i]);
+        doc_free(&dv->doc[i]);
 
-    free(dv->docs);
+    free(dv->doc);
 
-    dv->docs = NULL;
+    dv->doc = NULL;
     dv->size = 0;
     dv->alloc = 0;
 }
@@ -369,16 +376,14 @@ void docs_free(Document_Vector *dv)
 void docs_push(Document_Vector *d, Document doc)
 {
     docs_alloc(d, d->size + 1);
-    d->docs[d->size++] = doc;
+    d->doc[d->size++] = doc;
 }
 
 int load_directory(const char *dirname, Document_Vector *docs)
 {
     DIR *dir = opendir(dirname);
-    if (!dir) {
-        perror("unable to open directory");
-        exit(EXIT_FAILURE);
-    }
+    if (!dir)
+        return 0;
 
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
@@ -413,22 +418,21 @@ int main(void)
 
     printf("Loaded %zu documents\n", docs.size);
 
-    // Build TF_Table for each document
     for (size_t i = 0; i < docs.size; ++i) {
-        docs.docs[i].text = html_extract(docs.docs[i].contents);
-        to_uppercase(docs.docs[i].text, strlen(docs.docs[i].text));
+        docs.doc[i].text = html_extract(docs.doc[i].contents);
+        to_uppercase(docs.doc[i].text, strlen(docs.doc[i].text));
 
         String_View input = {
-            .data = docs.docs[i].text,
-            .count = strlen(docs.docs[i].text),
+            .data = docs.doc[i].text,
+            .count = strlen(docs.doc[i].text),
         };
 
         for (;;) {
             String_View token = next_token(&input);
             if (!token.data)
                 break;
-            docs.docs[i].ntokens++;
-            tf_table_insert(&docs.docs[i].tf,
+            docs.doc[i].ntokens++;
+            tf_table_insert(&docs.doc[i].tf,
                             (Term_Frequency){ .term = token, .freq = 1 });
         }
     }
@@ -436,19 +440,19 @@ int main(void)
     // Compute tf-idf
     for (size_t i = 0; i < docs.size; ++i) {
         printf("\n%s (%zu bytes)\n",
-               docs.docs[i].path,
-               docs.docs[i].length);
+               docs.doc[i].path,
+               docs.doc[i].length);
         
-        for (size_t j = 0; j < docs.docs[i].tf.alloc; ++j) {
-            Term_Frequency *tf = &docs.docs[i].tf.tf[j];
+        for (size_t j = 0; j < docs.doc[i].tf.alloc; ++j) {
+            Term_Frequency *tf = &docs.doc[i].tf.tf[j];
 
-            if (tf->freq == 0)
+            if (tf->freq <= 0)
                 continue;
 
-            double term_freq = compute_term_frequency(tf->term, docs.docs[i]);
+            double term_freq = compute_term_frequency(tf->term, docs.doc[i]);
             double inv_term_freq = compute_inverse_document_frequency(tf->term, docs);
             double score = term_freq * inv_term_freq;
-            printf("  %.*s -> %ld, %.4f, %.4f, %.4f\n",
+            printf("  %16.*s -> %4ld, %.4f, %.4f, %.4f\n",
                    (int)tf->term.count,
                    tf->term.data,
                    tf->freq,
@@ -462,4 +466,3 @@ int main(void)
 
     return 0;
 }
-
