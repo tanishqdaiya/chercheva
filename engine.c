@@ -289,7 +289,7 @@ double compute_term_frequency(String_View t, Document d)
     if (!kv)
         return 0.0;
     
-    return (double)kv->freq / (1 + d.ntokens);
+    return log(1 + kv->freq);
 }
 
 double compute_inverse_document_frequency(String_View t, Document_Vector dv)
