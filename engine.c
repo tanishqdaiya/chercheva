@@ -399,7 +399,7 @@ double compute_term_frequency(String_View t, Document d)
     Term_Frequency *kv = tf_table_search(&d.tf, t);
     if (!kv)
         return 0.0;
-    
+
     return log(1 + kv->freq);
 }
 
@@ -467,6 +467,45 @@ int load_directory(const char *dirname, Document_Vector *docs)
     return 1;
 }
 
+/* == SEARCHING & INDEXING == */
+
+
+Result_Vector search(Document_Vector docs, String query)
+{
+    Result_Vector rv = { 0 };
+    for (size_t i = 0; i < docs.size; ++i) {
+        String_View input = {
+            .data = query.data,
+            .size = query.size,
+        };
+
+        double score = 0.0;
+
+        for (;;) {
+            String_View token = next_token(&input);
+            if (!token.data)
+                break;
+
+            double tf = compute_term_frequency(token, docs.data[i]);
+            double idf = compute_inverse_document_frequency(token, docs);
+
+            score += tf * idf;
+        }
+
+        /* skip irrelevant */
+        if (score < EPSILON)
+            continue;
+
+        Result_Pair rp = {
+            .doc_index = i,
+            .score = score,
+        };
+
+        vec_append(&rv, rp);
+    }
+    return rv;
+}
+
 int result_pair_cmp(const void *a, const void *b)
 {
     const Result_Pair *ra = a;
@@ -484,8 +523,8 @@ int result_pair_cmp(const void *a, const void *b)
 int main()
 {
     Document_Vector docs = { 0 };
-    load_directory("gdb_docs", &docs);
 
+    load_directory("gdb_docs", &docs);
     printf("Loaded %zu documents\n", docs.size);
 
     /* build term frequency table for each document */
@@ -516,37 +555,7 @@ int main()
     string_append_cstr(&query, "having gdb infer the source language");
     to_uppercase(query);
 
-    Result_Vector rv = { 0 };
-    for (size_t i = 0; i < docs.size; ++i) {
-        String_View input = {
-            .data = query.data,
-            .size = query.size,
-        };
-        
-        double score = 0.0;
-
-        for (;;) {
-            String_View token = next_token(&input);
-            if (!token.data)
-                break;
-
-            double tf = compute_term_frequency(token, docs.data[i]);
-            double idf = compute_inverse_document_frequency(token, docs);
-
-            score += tf * idf;
-        }
-
-        /* skip irrelevant */
-        if (score < EPSILON)
-            continue;
-
-        Result_Pair rp = {
-            .doc_index = i,
-            .score = score,
-        };
-        
-        vec_append(&rv, rp);
-    }
+    Result_Vector rv = search(docs, query);
 
     qsort(rv.data, rv.size, sizeof(*rv.data), result_pair_cmp);
     for (size_t i = 0; i < rv.size; ++i) {
@@ -555,9 +564,9 @@ int main()
                doc->path.data,
                rv.data[i].score);
     }
-    
+
     free(rv.data);
     docs_free(&docs);
-    
+
     return 0;
 }
