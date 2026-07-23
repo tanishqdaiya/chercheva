@@ -14,6 +14,7 @@
 #include "lib/lexbor/dom/dom.h"
 
 #define DOCUMENT_VECINITSZ 32
+#define VECINITSZ 32
 
 #define TABLE_INITSZ 64
 #define TABLE_LOADF  0.5
@@ -23,9 +24,20 @@
 #define FNV_PRIME_32 0x01000193U
 #define FNV_OFFSET_BASIS_32 0x811C9DC5U
 
+/*
+ * String:
+ *  data is either NULL or points in range [0, alloc)
+ *  size excludes terminating '\0'
+ *  data[size] is always '\0'
+ */
 typedef struct {
     char *data;
-    size_t count;
+    size_t size, alloc;
+} String;
+
+typedef struct {
+    const char *data;
+    size_t size;
 } String_View;
 
 typedef struct {
@@ -39,19 +51,18 @@ typedef struct {
 } TF_Table;
 
 typedef struct {
-    char *path;
-    char *contents;
-    char *text;
+    String path;
+    String content;
+    String text;
 
     // @Todo Rename
-    size_t length; /* for contents */
     size_t ntokens;
 
     TF_Table tf;
 } Document;
 
 typedef struct {
-    Document *doc;
+    Document *data;
     size_t size, alloc;
 } Document_Vector;
 
@@ -63,22 +74,71 @@ typedef struct {
         exit(EXIT_FAILURE);                     \
     } while (0)
 
-void to_uppercase(char *str, size_t n)
+/* It is a resizing function which required the vector in its right structural
+   format and the required capacity. If the capacity exceeds the pre-allocated
+   size of the vector, we resize. This function is unsafe and provides no
+   guaranteed successful reallocation */
+#define vec_alloc(vector, capacity)                                     \
+    do {                                                                \
+        if ((capacity) > (vector)->alloc) {                             \
+            if ((vector)->alloc == 0) (vector)->alloc = VECINITSZ;      \
+            while ((capacity) > (vector)->alloc) (vector)->alloc *= 2;  \
+            (vector)->data = realloc((vector)->data,                    \
+                                     (vector)->alloc * sizeof(*(vector)->data)); \
+            if ((vector)->data == NULL) {                               \
+                FATAL("TD_REALLOC: out of memory");                     \
+            }                                                           \
+        }                                                               \
+    } while (0)
+
+#define vec_append(vector, item)                        \
+    do {                                                \
+        vec_alloc((vector), (vector)->size + 1);        \
+        (vector)->data[(vector)->size++] = (item);      \
+    } while (0)
+
+#define vec_append_bulk(vector, items, count)                   \
+    do {                                                        \
+        vec_alloc((vector), (vector)->size + count);            \
+        memcpy((vector)->data + (vector)->size,                 \
+               (items),                                         \
+               (count)*sizeof(*(vector)->data));                \
+        (vector)->size += (count);                              \
+    } while (0)
+
+void to_uppercase(String str)
 {
-    for (size_t i = 0; i < n; ++i)
-        str[i] = (char)toupper(str[i]);
+    for (size_t i = 0; i < str.size; ++i)
+        str.data[i] = (char)toupper(str.data[i]);
 }
 
 bool sv_equal(String_View a, String_View b)
 {
-    if (a.count != b.count)
+    if (a.size != b.size)
         return false;
-    for (size_t i = 0; i < a.count; i++) {
+    for (size_t i = 0; i < a.size; i++) {
         if (a.data[i] != b.data[i])
             return false;
     }
 
     return true;
+}
+
+void string_append_cstr(String *string, const char *cstr)
+{
+    size_t n = strlen(cstr);
+
+    vec_alloc(string, string->size + n + 1);
+    memcpy(string->data + string->size, cstr, n);
+
+    string->size += n;
+    string->data[string->size] = '\0';
+}
+
+void string_clear(String *string)
+{
+    free(string->data);
+    *string = (String) { 0 };
 }
 
 int read_file(const char *path, Document *doc)
@@ -104,9 +164,13 @@ int read_file(const char *path, Document *doc)
     content[size] = '\0';
     fclose(fp);
 
-    doc->path = strdup(path);
-    doc->contents = content;
-    doc->length = (size_t)size;
+    doc->path.data = strdup(path);
+    doc->path.size = strlen(path);
+    doc->content = (String) {
+        .data = content,
+        .size = size,
+        .alloc = size + 1,
+    };
 
     return 1;
 }
@@ -178,41 +242,41 @@ char *html_extract(const char *html)
 String_View next_token(String_View *corpus)
 {
     // trim left
-    while ((unsigned char)corpus->count > 0 && isspace((unsigned char)*corpus->data)) {
+    while ((unsigned char)corpus->size > 0 && isspace((unsigned char)*corpus->data)) {
         corpus->data++;
-        corpus->count--;
+        corpus->size--;
     }
 
-    if (corpus->count == 0)
+    if (corpus->size == 0)
         return (String_View){ 0 };
 
     if (isalpha((unsigned char)*corpus->data)) {
         size_t n = 0;
-        while (n < corpus->count && isalnum((unsigned char)corpus->data[n]))
+        while (n < corpus->size && isalnum((unsigned char)corpus->data[n]))
             n++;
 
         String_View token = {
             .data = corpus->data,
-            .count = n
+            .size = n
         };
 
         corpus->data += n;
-        corpus->count -= n;
+        corpus->size -= n;
 
         return token;
     }
 
     if (isdigit((unsigned char)*corpus->data)) {
         size_t n = 0;
-        while (n < corpus->count && isdigit((unsigned char)corpus->data[n]))
+        while (n < corpus->size && isdigit((unsigned char)corpus->data[n]))
             n++;
         String_View token = {
             .data = corpus->data,
-            .count = n
+            .size = n
         };
 
         corpus->data += n;
-        corpus->count -= n;
+        corpus->size -= n;
 
         return token;
     }
@@ -220,11 +284,11 @@ String_View next_token(String_View *corpus)
     // for punctuation
     String_View token = {
         .data = corpus->data,
-        .count = 1
+        .size = 1
     };
 
     corpus->data++;
-    corpus->count--;
+    corpus->size--;
 
     return token;
 }
@@ -234,7 +298,7 @@ String_View next_token(String_View *corpus)
 uint32_t tf_table_hash(String_View sv)
 {
     uint32_t hash = FNV_OFFSET_BASIS_32;
-    for (size_t i = 0; i < sv.count; ++i) {
+    for (size_t i = 0; i < sv.size; ++i) {
         hash ^= (uint8_t)sv.data[i];
         hash *= FNV_PRIME_32;
     }
@@ -333,7 +397,7 @@ double compute_inverse_document_frequency(String_View t, Document_Vector dv)
 {
     long df = 0;
     for (size_t i = 0; i < dv.size; ++i) {
-        if (tf_table_search(&dv.doc[i].tf, t))
+        if (tf_table_search(&dv.data[i].tf, t))
             df++;
     }
 
@@ -341,44 +405,24 @@ double compute_inverse_document_frequency(String_View t, Document_Vector dv)
 }
 
 /* == DOCUMENT VECTOR == */
-
-static void docs_alloc(Document_Vector *dv, size_t capacity)
-{
-    if (dv->alloc < capacity) {
-        if (dv->alloc == 0)
-            dv->alloc = DOCUMENT_VECINITSZ;
-        while (dv->alloc < capacity)
-            dv->alloc *= 2;
-        dv->doc = realloc(dv->doc, dv->alloc * sizeof(*(dv)->doc));
-        if (!dv->doc)
-            FATAL("docs_alloc: out of memory!\n");
-    }
-}
-
 void doc_free(Document *d)
 {
-    free(d->path);
-    free(d->contents);
-    free(d->text);
+    string_clear(&d->path);
+    string_clear(&d->content);
+    free(d->text.data);
     free(d->tf.tf);
 }
 
 void docs_free(Document_Vector *dv)
 {
     for (size_t i = 0; i < dv->size; ++i)
-        doc_free(&dv->doc[i]);
+        doc_free(&dv->data[i]);
 
-    free(dv->doc);
+    free(dv->data);
 
-    dv->doc = NULL;
+    dv->data = NULL;
     dv->size = 0;
     dv->alloc = 0;
-}
-
-void docs_push(Document_Vector *d, Document doc)
-{
-    docs_alloc(d, d->size + 1);
-    d->doc[d->size++] = doc;
 }
 
 int load_directory(const char *dirname, Document_Vector *docs)
@@ -406,7 +450,7 @@ int load_directory(const char *dirname, Document_Vector *docs)
         if (!read_file(path, &doc))
             continue;
 
-        docs_push(docs, doc);
+        vec_append(docs, doc);
     }
 
     closedir(dir);
@@ -422,13 +466,14 @@ int main()
 
     /* build term frequency table for each document */
     for (size_t i = 0; i < docs.size; ++i) {
-        Document *d = &docs.doc[i];
-        d->text = html_extract(d->contents);
-        to_uppercase(d->text, strlen(d->text));
+        Document *d = &docs.data[i];
+        d->text.data = html_extract(d->content.data);
+        d->text.size = strlen(d->text.data);
+        to_uppercase(d->text);
 
         String_View input = {
-            .data = d->text,
-            .count = strlen(d->text),
+            .data = d->text.data,
+            .size = d->text.size,
         };
 
         for (;;) {
@@ -443,13 +488,14 @@ int main()
 
     /* process queries (very basic, it doesn't even account for cosine
      * similarity */
-    char query[] = "exit";
-    to_uppercase(query, strlen(query));
+    String query = { 0 };
+    string_append_cstr(&query, "exit");
+    to_uppercase(query);
 
     for (size_t i = 0; i < docs.size; ++i) {
         String_View input = {
-            .data = query,
-            .count = strlen(query),
+            .data = query.data,
+            .size = query.size,
         };
         
         double score = 0.0;
@@ -459,7 +505,7 @@ int main()
             if (!token.data)
                 break;
 
-            double tf = compute_term_frequency(token, docs.doc[i]);
+            double tf = compute_term_frequency(token, docs.data[i]);
             double idf = compute_inverse_document_frequency(token, docs);
 
             score += tf * idf;
@@ -467,7 +513,7 @@ int main()
 
         if (score < EPSILON)
             continue;
-        printf("%s -> %.6f\n", docs.doc[i].path, score);
+        printf("%s -> %.6f\n", docs.data[i].path.data, score);
     }
 
     docs_free(&docs);
