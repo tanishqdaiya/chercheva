@@ -18,6 +18,8 @@
 #define TABLE_INITSZ 64
 #define TABLE_LOADF  0.5
 
+#define EPSILON 1e-9
+
 #define FNV_PRIME_32 0x01000193U
 #define FNV_OFFSET_BASIS_32 0x811C9DC5U
 
@@ -463,6 +465,8 @@ int main()
             score += tf * idf;
         }
 
+        if (score < EPSILON)
+            continue;
         printf("%s -> %.6f\n", docs.doc[i].path, score);
     }
 
