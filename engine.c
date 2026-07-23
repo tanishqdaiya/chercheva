@@ -122,14 +122,14 @@ char *html_extract(const char *html)
 String_View next_token(String_View *corpus)
 {
     // trim left
-    while (corpus->count > 0 && isspace(*corpus->data)) {
+    while ((unsigned char)corpus->count > 0 && isspace((unsigned char)*corpus->data)) {
         corpus->data++;
         corpus->count--;
     }
 
     if (corpus->count == 0)
         return (String_View){ 0 };
-    
+
     if (isalpha((unsigned char)*corpus->data)) {
         size_t n = 0;
         while (n < corpus->count && isalnum((unsigned char)corpus->data[n]))
@@ -139,10 +139,10 @@ String_View next_token(String_View *corpus)
             .data = corpus->data,
             .count = n
         };
-        
+
         corpus->data += n;
         corpus->count -= n;
-        
+
         return token;
     }
 
@@ -154,10 +154,10 @@ String_View next_token(String_View *corpus)
             .data = corpus->data,
             .count = n
         };
-        
+
         corpus->data += n;
         corpus->count -= n;
-        
+
         return token;
     }
 
@@ -187,7 +187,7 @@ bool sv_equal(String_View a, String_View b)
         if (a.data[i] != b.data[i])
             return false;
     }
-    
+
     return true;
 }
 
@@ -208,7 +208,7 @@ Term_Frequency *tf_table_search(TF_Table *table, String_View term)
 
     size_t start = tf_table_hash(term) % table->alloc;
     size_t index = start;
-    
+
     do {
         if (table->tf[index].freq == 0)
             return NULL;
@@ -228,7 +228,7 @@ void tf_table_rehash(TF_Table *table, size_t needed)
 
     if (alloc == 0)
         alloc = TABLE_INITSZ;
-    
+
     while ((double)needed/alloc > TABLE_LOADF)
         alloc *= 2;
 
@@ -390,12 +390,41 @@ int main(void)
     printf("Loaded %zu documents\n", docs.size);
 
     for (size_t i = 0; i < docs.size; ++i) {
-        printf("%s (%zu bytes)\n",
+        printf("\n%s (%zu bytes)\n",
                docs.docs[i].path,
                docs.docs[i].length);
+
+        char *text = html_extract(docs.docs[i].contents);
+        to_uppercase(text, strlen(text));
+
+        String_View input = {
+            .data = text,
+            .count = strlen(text),
+        };
+
+        for (;;) {
+            String_View token = next_token(&input);
+            if (!token.data)
+                break;
+            tf_table_insert(&docs.docs[i].tf,
+                            (Term_Frequency){ .term = token, .freq = 1 });
+        }
+
+        for (size_t j = 0; j < docs.docs[i].tf.alloc; ++j) {
+            Term_Frequency *tf = &docs.docs[i].tf.tf[j];
+
+            if (tf->freq == 0)
+                continue;
+
+            printf("  %.*s -> %ld\n",
+                   (int)tf->term.count,
+                   tf->term.data,
+                   tf->freq);
+        }
     }
 
     docs_free(&docs);
-    
+
     return 0;
 }
+
