@@ -411,58 +411,61 @@ int load_directory(const char *dirname, Document_Vector *docs)
     return 1;
 }
 
-int main(void)
+int main()
 {
     Document_Vector docs = { 0 };
     load_directory("gdb_docs", &docs);
 
     printf("Loaded %zu documents\n", docs.size);
 
+    /* build term frequency table for each document */
     for (size_t i = 0; i < docs.size; ++i) {
-        docs.doc[i].text = html_extract(docs.doc[i].contents);
-        to_uppercase(docs.doc[i].text, strlen(docs.doc[i].text));
+        Document *d = &docs.doc[i];
+        d->text = html_extract(d->contents);
+        to_uppercase(d->text, strlen(d->text));
 
         String_View input = {
-            .data = docs.doc[i].text,
-            .count = strlen(docs.doc[i].text),
+            .data = d->text,
+            .count = strlen(d->text),
         };
 
         for (;;) {
             String_View token = next_token(&input);
             if (!token.data)
                 break;
-            docs.doc[i].ntokens++;
-            tf_table_insert(&docs.doc[i].tf,
+            d->ntokens++;
+            tf_table_insert(&d->tf,
                             (Term_Frequency){ .term = token, .freq = 1 });
         }
     }
 
-    // Compute tf-idf
+    /* process queries (very basic, it doesn't even account for cosine
+     * similarity */
+    char query[] = "exit";
+    to_uppercase(query, strlen(query));
+
     for (size_t i = 0; i < docs.size; ++i) {
-        printf("\n%s (%zu bytes)\n",
-               docs.doc[i].path,
-               docs.doc[i].length);
+        String_View input = {
+            .data = query,
+            .count = strlen(query),
+        };
         
-        for (size_t j = 0; j < docs.doc[i].tf.alloc; ++j) {
-            Term_Frequency *tf = &docs.doc[i].tf.tf[j];
+        double score = 0.0;
 
-            if (tf->freq <= 0)
-                continue;
+        for (;;) {
+            String_View token = next_token(&input);
+            if (!token.data)
+                break;
 
-            double term_freq = compute_term_frequency(tf->term, docs.doc[i]);
-            double inv_term_freq = compute_inverse_document_frequency(tf->term, docs);
-            double score = term_freq * inv_term_freq;
-            printf("  %16.*s -> %4ld, %.4f, %.4f, %.4f\n",
-                   (int)tf->term.count,
-                   tf->term.data,
-                   tf->freq,
-                   term_freq,
-                   inv_term_freq,
-                   score);
+            double tf = compute_term_frequency(token, docs.doc[i]);
+            double idf = compute_inverse_document_frequency(token, docs);
+
+            score += tf * idf;
         }
+
+        printf("%s -> %.6f\n", docs.doc[i].path, score);
     }
 
     docs_free(&docs);
-
     return 0;
 }
