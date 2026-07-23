@@ -1,0 +1,302 @@
+<!-- This HTML file has been created by texi2html 1.30
+     from /afs/.athena/project/gnu/src/gdb-4.14/gdb/doc/gdb.texinfo on 6 July 1995 -->
+
+<TITLE>Debugging with GDB - Examining Source Files</TITLE>
+<P>Go to the <A HREF="gdb_8.html">previous</A>, <A HREF="gdb_10.html">next</A> section.<P>
+<H1><A NAME="SEC48" HREF="gdb_toc.html#SEC48">Examining Source Files</A></H1>
+<P>
+GDB can print parts of your program's source, since the debugging
+information recorded in the program tells GDB what source files were
+used to build it.  When your program stops, GDB spontaneously prints
+the line where it stopped.  Likewise, when you select a stack frame
+(see section <A HREF="gdb_8.html#SEC45">Selecting a frame</A>), GDB prints the line where
+execution in that frame has stopped.  You can print other portions of
+source files by explicit command.
+<P>
+If you use GDB through its GNU Emacs interface, you may prefer to use
+Emacs facilities to view source; see section <A HREF="gdb_18.html#SEC144">Using GDB under GNU Emacs</A>.
+<P>
+<H2><A NAME="SEC49" HREF="gdb_toc.html#SEC49">Printing source lines</A></H2>
+<A NAME="IDX197"></A>
+<A NAME="IDX198"></A>
+<P>
+To print lines from a source file, use the <CODE>list</CODE> command
+(abbreviated <CODE>l</CODE>).  There are several ways to specify what part
+of the file you want to print.
+<P>
+Here are the forms of the <CODE>list</CODE> command most commonly used:
+<P>
+<DL COMPACT>
+<DT><CODE>list <VAR>linenum</VAR></CODE>
+<DD>Print lines centered around line number <VAR>linenum</VAR> in the
+current source file.
+<P>
+<DT><CODE>list <VAR>function</VAR></CODE>
+<DD>Print lines centered around the beginning of function
+<VAR>function</VAR>.
+<P>
+<DT><CODE>list</CODE>
+<DD>Print more lines.  If the last lines printed were printed with a
+<CODE>list</CODE> command, this prints lines following the last lines
+printed; however, if the last line printed was a solitary line printed
+as part of displaying a stack frame (see section <A HREF="gdb_8.html#SEC42">Examining the Stack</A>), this prints lines centered around that line.
+<P>
+<DT><CODE>list -</CODE>
+<DD>Print lines just before the lines last printed.
+</DL>
+<P>
+By default, GDB prints ten source lines with any of these forms of
+the <CODE>list</CODE> command.  You can change this using <CODE>set listsize</CODE>:
+<P>
+<DL COMPACT>
+<A NAME="IDX199"></A>
+<DT><CODE>set listsize <VAR>count</VAR></CODE>
+<DD>Make the <CODE>list</CODE> command display <VAR>count</VAR> source lines (unless
+the <CODE>list</CODE> argument explicitly specifies some other number).
+<P>
+<A NAME="IDX200"></A>
+<DT><CODE>show listsize</CODE>
+<DD>Display the number of lines that <CODE>list</CODE> prints.
+</DL>
+<P>
+Repeating a <CODE>list</CODE> command with <KBD>RET</KBD> discards the argument,
+so it is equivalent to typing just <CODE>list</CODE>.  This is more useful
+than listing the same lines again.  An exception is made for an
+argument of <SAMP>`-'</SAMP>; that argument is preserved in repetition so that
+each repetition moves up in the source file.
+<A NAME="IDX201"></A>
+<P>
+In general, the <CODE>list</CODE> command expects you to supply zero, one or two
+<DFN>linespecs</DFN>.  Linespecs specify source lines; there are several ways
+of writing them but the effect is always to specify some source line.
+Here is a complete description of the possible arguments for <CODE>list</CODE>:
+<P>
+<DL COMPACT>
+<DT><CODE>list <VAR>linespec</VAR></CODE>
+<DD>Print lines centered around the line specified by <VAR>linespec</VAR>.
+<P>
+<DT><CODE>list <VAR>first</VAR>,<VAR>last</VAR></CODE>
+<DD>Print lines from <VAR>first</VAR> to <VAR>last</VAR>.  Both arguments are
+linespecs.
+<P>
+<DT><CODE>list ,<VAR>last</VAR></CODE>
+<DD>Print lines ending with <VAR>last</VAR>.
+<P>
+<DT><CODE>list <VAR>first</VAR>,</CODE>
+<DD>Print lines starting with <VAR>first</VAR>.
+<P>
+<DT><CODE>list +</CODE>
+<DD>Print lines just after the lines last printed.
+<P>
+<DT><CODE>list -</CODE>
+<DD>Print lines just before the lines last printed.
+<P>
+<DT><CODE>list</CODE>
+<DD>As described in the preceding table.
+</DL>
+<P>
+Here are the ways of specifying a single source line--all the
+kinds of linespec.
+<P>
+<DL COMPACT>
+<DT><CODE><VAR>number</VAR></CODE>
+<DD>Specifies line <VAR>number</VAR> of the current source file.
+When a <CODE>list</CODE> command has two linespecs, this refers to
+the same source file as the first linespec.
+<P>
+<DT><CODE>+<VAR>offset</VAR></CODE>
+<DD>Specifies the line <VAR>offset</VAR> lines after the last line printed.
+When used as the second linespec in a <CODE>list</CODE> command that has
+two, this specifies the line <VAR>offset</VAR> lines down from the
+first linespec.
+<P>
+<DT><CODE>-<VAR>offset</VAR></CODE>
+<DD>Specifies the line <VAR>offset</VAR> lines before the last line printed.
+<P>
+<DT><CODE><VAR>filename</VAR>:<VAR>number</VAR></CODE>
+<DD>Specifies line <VAR>number</VAR> in the source file <VAR>filename</VAR>.
+<P>
+<DT><CODE><VAR>function</VAR></CODE>
+<DD>Specifies the line of the open-brace that begins the body of the
+function <VAR>function</VAR>.
+<P>
+<DT><CODE><VAR>filename</VAR>:<VAR>function</VAR></CODE>
+<DD>Specifies the line of the open-brace that begins the body of the
+function <VAR>function</VAR> in the file <VAR>filename</VAR>.  You only need the
+file name with a function name to avoid ambiguity when there are
+identically named functions in different source files.
+<P>
+<DT><CODE>*<VAR>address</VAR></CODE>
+<DD>Specifies the line containing the program address <VAR>address</VAR>.
+<VAR>address</VAR> may be any expression.
+</DL>
+<P>
+<A NAME="IDX202"></A>
+<A NAME="IDX203"></A>
+<H2><A NAME="SEC50" HREF="gdb_toc.html#SEC50">Searching source files</A></H2>
+<P>
+There are two commands for searching through the current source file for a
+regular expression.
+<P>
+<DL COMPACT>
+<DT><CODE>forward-search <VAR>regexp</VAR></CODE>
+<DD><A NAME="IDX204"></A>
+<A NAME="IDX205"></A>
+<DT><CODE>search <VAR>regexp</VAR></CODE>
+<DD>The command <SAMP>`forward-search <VAR>regexp</VAR>'</SAMP> checks each line,
+starting with the one following the last line listed, for a match for
+<VAR>regexp</VAR>.  It lists the line that is found.  You can use
+synonym <SAMP>`search <VAR>regexp</VAR>'</SAMP> or abbreviate the command name as
+<CODE>fo</CODE>.
+<P>
+<DT><CODE>reverse-search <VAR>regexp</VAR></CODE>
+<DD>The command <SAMP>`reverse-search <VAR>regexp</VAR>'</SAMP> checks each line, starting
+with the one before the last line listed and going backward, for a match
+for <VAR>regexp</VAR>.  It lists the line that is found.  You can abbreviate
+this command as <CODE>rev</CODE>.
+</DL>
+<P>
+<H2><A NAME="SEC51" HREF="gdb_toc.html#SEC51">Specifying source directories</A></H2>
+<A NAME="IDX206"></A>
+<A NAME="IDX207"></A>
+<P>
+Executable programs sometimes do not record the directories of the source
+files from which they were compiled, just the names.  Even when they do,
+the directories could be moved between the compilation and your debugging
+session.  GDB has a list of directories to search for source files;
+this is called the <DFN>source path</DFN>.  Each time GDB wants a source file,
+it tries all the directories in the list, in the order they are present
+in the list, until it finds a file with the desired name.  Note that
+the executable search path is <EM>not</EM> used for this purpose.  Neither is
+the current working directory, unless it happens to be in the source
+path.
+<P>
+If GDB cannot find a source file in the source path, and the
+object program records a directory, GDB tries that directory
+too.  If the source path is empty, and there is no record of the
+compilation directory, GDB looks in the current directory as a
+last resort.
+<P>
+Whenever you reset or rearrange the source path, GDB clears out
+any information it has cached about where source files are found and where
+each line is in the file.
+<A NAME="IDX208"></A>
+<P>
+When you start GDB, its source path is empty.
+To add other directories, use the <CODE>directory</CODE> command.
+<P>
+<DL COMPACT>
+<DT><CODE>directory <VAR>dirname</VAR> ...</CODE>
+<DD>Add directory <VAR>dirname</VAR> to the front of the source path.  Several
+directory names may be given to this command, separated by <SAMP>`:'</SAMP> or
+whitespace.  You may specify a directory that is already in the source
+path; this moves it forward, so GDB searches it sooner.
+<A NAME="IDX209"></A>
+<A NAME="IDX210"></A>
+<A NAME="IDX211"></A>
+<A NAME="IDX212"></A>
+<A NAME="IDX213"></A>
+<A NAME="IDX214"></A>
+<A NAME="IDX215"></A>
+<A NAME="IDX216"></A>
+<A NAME="IDX217"></A>
+<P>
+You can use the string <SAMP>`$cdir'</SAMP> to refer to the compilation
+directory (if one is recorded), and <SAMP>`$cwd'</SAMP> to refer to the current
+working directory.  <SAMP>`$cwd'</SAMP> is not the same as <SAMP>`.'</SAMP>---the former
+tracks the current working directory as it changes during your GDB
+session, while the latter is immediately expanded to the current
+directory at the time you add an entry to the source path.
+<P>
+<DT><CODE>directory</CODE>
+<DD>Reset the source path to empty again.  This requires confirmation.
+<P>
+<A NAME="IDX218"></A>
+<DT><CODE>show directories</CODE>
+<DD>Print the source path: show which directories it contains.
+</DL>
+<P>
+If your source path is cluttered with directories that are no longer of
+interest, GDB may sometimes cause confusion by finding the wrong
+versions of source.  You can correct the situation as follows:
+<P>
+<OL>
+<LI>
+Use <CODE>directory</CODE> with no argument to reset the source path to empty.
+<P>
+<LI>
+Use <CODE>directory</CODE> with suitable arguments to reinstall the
+directories you want in the source path.  You can add all the
+directories in one command.
+</OL>
+<P>
+<H2><A NAME="SEC52" HREF="gdb_toc.html#SEC52">Source and machine code</A></H2>
+<P>
+You can use the command <CODE>info line</CODE> to map source lines to program
+addresses (and vice versa), and the command <CODE>disassemble</CODE> to display
+a range of addresses as machine instructions.
+<P>
+<DL COMPACT>
+<A NAME="IDX219"></A>
+<DT><CODE>info line <VAR>linespec</VAR></CODE>
+<DD>Print the starting and ending addresses of the compiled code for
+source line <VAR>linespec</VAR>.  You can specify source lines in any of
+the ways understood by the <CODE>list</CODE> command (see section <A HREF="gdb_9.html#SEC49">Printing source lines</A>).
+</DL>
+<P>
+For example, we can use <CODE>info line</CODE> to discover the location of
+the object code for the first line of function
+<CODE>m4_changequote</CODE>:
+<P>
+<PRE>
+(gdb) info line m4_changecom
+Line 895 of "builtin.c" starts at pc 0x634c and ends at 0x6350.
+</PRE>
+<P>
+We can also inquire (using <CODE>*<VAR>addr</VAR></CODE> as the form for
+<VAR>linespec</VAR>) what source line covers a particular address:
+<PRE>
+(gdb) info line *0x63ff
+Line 926 of "builtin.c" starts at pc 0x63e4 and ends at 0x6404.
+</PRE>
+<A NAME="IDX220"></A>
+<P>
+After <CODE>info line</CODE>, the default address for the <CODE>x</CODE> command
+is changed to the starting address of the line, so that <SAMP>`x/i'</SAMP> is
+sufficient to begin examining the machine code (see section <A HREF="gdb_10.html#SEC58">Examining memory</A>).  Also, this address is saved as the value of the
+convenience variable <CODE>$_</CODE> (see section <A HREF="gdb_10.html#SEC62">Convenience variables</A>).
+<P>
+<A NAME="IDX221"></A>
+<DL COMPACT>
+<A NAME="IDX222"></A>
+<A NAME="IDX223"></A>
+<A NAME="IDX224"></A>
+<A NAME="IDX225"></A>
+<DT><CODE>disassemble</CODE>
+<DD>This specialized command dumps a range of memory as machine
+instructions.  The default memory range is the function surrounding the
+program counter of the selected frame.  A single argument to this
+command is a program counter value; GDB dumps the function
+surrounding this value.  Two arguments specify a range of addresses
+(first inclusive, second exclusive) to dump.
+</DL>
+<P>
+We can use <CODE>disassemble</CODE> to inspect the object code
+range shown in the last <CODE>info line</CODE> example (the example
+shows SPARC machine instructions):
+<P>
+<PRE>
+(gdb) disas 0x63e4 0x6404
+Dump of assembler code from 0x63e4 to 0x6404:
+0x63e4 &#60;builtin_init+5340&#62;:     ble 0x63f8 &#60;builtin_init+5360&#62;
+0x63e8 &#60;builtin_init+5344&#62;:     sethi %hi(0x4c00), %o0
+0x63ec &#60;builtin_init+5348&#62;:     ld [%i1+4], %o0
+0x63f0 &#60;builtin_init+5352&#62;:     b 0x63fc &#60;builtin_init+5364&#62;
+0x63f4 &#60;builtin_init+5356&#62;:     ld [%o0+4], %o0
+0x63f8 &#60;builtin_init+5360&#62;:     or %o0, 0x1a4, %o0
+0x63fc &#60;builtin_init+5364&#62;:     call 0x9288 &#60;path_search&#62;
+0x6400 &#60;builtin_init+5368&#62;:     nop
+End of assembler dump.
+</PRE>
+<P>
+<P>Go to the <A HREF="gdb_8.html">previous</A>, <A HREF="gdb_10.html">next</A> section.<P>

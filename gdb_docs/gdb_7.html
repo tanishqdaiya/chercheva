@@ -1,0 +1,1014 @@
+<!-- This HTML file has been created by texi2html 1.30
+     from /afs/.athena/project/gnu/src/gdb-4.14/gdb/doc/gdb.texinfo on 6 July 1995 -->
+
+<TITLE>Debugging with GDB - Stopping and Continuing</TITLE>
+<P>Go to the <A HREF="gdb_6.html">previous</A>, <A HREF="gdb_8.html">next</A> section.<P>
+<H1><A NAME="SEC28" HREF="gdb_toc.html#SEC28">Stopping and Continuing</A></H1>
+<P>
+The principal purposes of using a debugger are so that you can stop your
+program before it terminates; or so that, if your program runs into
+trouble, you can investigate and find out why.
+<P>
+Inside GDB, your program may stop for any of several reasons, such
+as
+a signal,
+a breakpoint, or reaching a new line after a GDB
+command such as <CODE>step</CODE>.  You may then examine and change
+variables, set new breakpoints or remove old ones, and then continue
+execution.  Usually, the messages shown by GDB provide ample
+explanation of the status of your program--but you can also explicitly
+request this information at any time.
+<P>
+<DL COMPACT>
+<A NAME="IDX83"></A>
+<DT><CODE>info program</CODE>
+<DD>Display information about the status of your program: whether it is
+running or not,
+what process it is,
+and why it stopped.
+</DL>
+<P>
+<H2><A NAME="SEC29" HREF="gdb_toc.html#SEC29">Breakpoints, watchpoints, and exceptions</A></H2>
+<A NAME="IDX84"></A>
+<P>
+A <DFN>breakpoint</DFN> makes your program stop whenever a certain point in
+the program is reached.  For each breakpoint, you can add
+conditions to control in finer detail whether your program stops.
+You can set breakpoints with the <CODE>break</CODE> command and its variants
+(see section <A HREF="gdb_7.html#SEC30">Setting breakpoints</A>), to specify the place where
+your program should stop by line number, function name or exact address
+in the program.  
+In languages with exception handling (such as GNU C++), you can also set
+breakpoints where an exception is raised (see section <A HREF="gdb_7.html#SEC32">Breakpoints and exceptions</A>).
+<A NAME="IDX85"></A>
+<A NAME="IDX86"></A>
+<A NAME="IDX87"></A>
+<A NAME="IDX88"></A>
+<P>
+A <DFN>watchpoint</DFN> is a special breakpoint that stops your program
+when the value of an expression changes.  You must use a different
+command to set watchpoints (see section <A HREF="gdb_7.html#SEC31">Setting watchpoints</A>), but aside from that, you can manage a watchpoint like
+any other breakpoint: you enable, disable, and delete both breakpoints
+and watchpoints using the same commands.
+<P>
+You can arrange to have values from your program displayed automatically
+whenever GDB stops at a breakpoint.  See section <A HREF="gdb_10.html#SEC59">Automatic display</A>.
+<A NAME="IDX89"></A>
+<A NAME="IDX90"></A>
+<P>
+GDB assigns a number to each breakpoint or watchpoint when you
+create it; these numbers are successive integers starting with one.  In
+many of the commands for controlling various features of breakpoints you
+use the breakpoint number to say which breakpoint you want to change.
+Each breakpoint may be <DFN>enabled</DFN> or <DFN>disabled</DFN>; if disabled, it has
+no effect on your program until you enable it again.
+<P>
+<H3><A NAME="SEC30" HREF="gdb_toc.html#SEC30">Setting breakpoints</A></H3>
+<P>
+<A NAME="IDX91"></A>
+<A NAME="IDX92"></A>
+<A NAME="IDX93"></A>
+<A NAME="IDX94"></A>
+<P>
+Breakpoints are set with the <CODE>break</CODE> command (abbreviated
+<CODE>b</CODE>).  The debugger convenience variable <SAMP>`$bpnum'</SAMP> records the 
+number of the beakpoint you've set most recently; see section <A HREF="gdb_10.html#SEC62">Convenience variables</A>, for a discussion of what you can do with
+convenience variables.
+<P>
+You have several ways to say where the breakpoint should go.
+<P>
+<DL COMPACT>
+<DT><CODE>break <VAR>function</VAR></CODE>
+<DD>Set a breakpoint at entry to function <VAR>function</VAR>.  
+When using source languages that permit overloading of symbols, such as
+C++, <VAR>function</VAR> may refer to more than one possible place to break.
+See section <A HREF="gdb_7.html#SEC37">Breakpoint menus</A>, for a discussion of that situation.
+<P>
+<DT><CODE>break +<VAR>offset</VAR></CODE>
+<DD><DT><CODE>break -<VAR>offset</VAR></CODE>
+<DD>Set a breakpoint some number of lines forward or back from the position
+at which execution stopped in the currently selected frame.
+<P>
+<DT><CODE>break <VAR>linenum</VAR></CODE>
+<DD>Set a breakpoint at line <VAR>linenum</VAR> in the current source file.
+That file is the last file whose source text was printed.  This
+breakpoint stops your program just before it executes any of the
+code on that line.
+<P>
+<DT><CODE>break <VAR>filename</VAR>:<VAR>linenum</VAR></CODE>
+<DD>Set a breakpoint at line <VAR>linenum</VAR> in source file <VAR>filename</VAR>.
+<P>
+<DT><CODE>break <VAR>filename</VAR>:<VAR>function</VAR></CODE>
+<DD>Set a breakpoint at entry to function <VAR>function</VAR> found in file
+<VAR>filename</VAR>.  Specifying a file name as well as a function name is
+superfluous except when multiple files contain similarly named
+functions.
+<P>
+<DT><CODE>break *<VAR>address</VAR></CODE>
+<DD>Set a breakpoint at address <VAR>address</VAR>.  You can use this to set
+breakpoints in parts of your program which do not have debugging
+information or source files.
+<P>
+<DT><CODE>break</CODE>
+<DD>When called without any arguments, <CODE>break</CODE> sets a breakpoint at
+the next instruction to be executed in the selected stack frame
+(see section <A HREF="gdb_8.html#SEC42">Examining the Stack</A>).  In any selected frame but the
+innermost, this makes your program stop as soon as control
+returns to that frame.  This is similar to the effect of a
+<CODE>finish</CODE> command in the frame inside the selected frame--except
+that <CODE>finish</CODE> does not leave an active breakpoint.  If you use
+<CODE>break</CODE> without an argument in the innermost frame, GDB stops
+the next time it reaches the current location; this may be useful
+inside loops.
+<P>
+GDB normally ignores breakpoints when it resumes execution, until at
+least one instruction has been executed.  If it did not do this, you
+would be unable to proceed past a breakpoint without first disabling the
+breakpoint.  This rule applies whether or not the breakpoint already
+existed when your program stopped.
+<P>
+<DT><CODE>break ... if <VAR>cond</VAR></CODE>
+<DD>Set a breakpoint with condition <VAR>cond</VAR>; evaluate the expression
+<VAR>cond</VAR> each time the breakpoint is reached, and stop only if the
+value is nonzero--that is, if <VAR>cond</VAR> evaluates as true.
+<SAMP>`...'</SAMP> stands for one of the possible arguments described
+above (or no argument) specifying where to break.  See section <A HREF="gdb_7.html#SEC35">Break conditions</A>, for more information on breakpoint conditions.
+<P>
+<A NAME="IDX95"></A>
+<DT><CODE>tbreak <VAR>args</VAR></CODE>
+<DD>Set a breakpoint enabled only for one stop.  <VAR>args</VAR> are the
+same as for the <CODE>break</CODE> command, and the breakpoint is set in the same
+way, but the breakpoint is automatically deleted after the first time your
+program stops there.  See section <A HREF="gdb_7.html#SEC34">Disabling breakpoints</A>.
+<P>
+<A NAME="IDX96"></A>
+<A NAME="IDX97"></A>
+<DT><CODE>rbreak <VAR>regex</VAR></CODE>
+<DD>Set breakpoints on all functions matching the regular expression
+<VAR>regex</VAR>.  This command
+sets an unconditional breakpoint on all matches, printing a list of all
+breakpoints it set.  Once these breakpoints are set, they are treated
+just like the breakpoints set with the <CODE>break</CODE> command.  You can
+delete them, disable them, or make them conditional the same way as any
+other breakpoint.
+<P>
+When debugging C++ programs, <CODE>rbreak</CODE> is useful for setting
+breakpoints on overloaded functions that are not members of any special
+classes.
+<A NAME="IDX98"></A>
+<A NAME="IDX99"></A>
+<P>
+<DT><CODE>info breakpoints [<VAR>n</VAR>]</CODE>
+<DD><DT><CODE>info break [<VAR>n</VAR>]</CODE>
+<DD><DT><CODE>info watchpoints [<VAR>n</VAR>]</CODE>
+<DD>Print a table of all breakpoints and watchpoints set and not
+deleted, with the following columns for each breakpoint:
+<P>
+<DL COMPACT>
+<DT><EM>Breakpoint Numbers</EM>
+<DD><DT><EM>Type</EM>
+<DD>Breakpoint or watchpoint.
+<DT><EM>Disposition</EM>
+<DD>Whether the breakpoint is marked to be disabled or deleted when hit.
+<DT><EM>Enabled or Disabled</EM>
+<DD>Enabled breakpoints are marked with <SAMP>`y'</SAMP>.  <SAMP>`n'</SAMP> marks breakpoints
+that are not enabled.
+<DT><EM>Address</EM>
+<DD>Where the breakpoint is in your program, as a memory address
+<DT><EM>What</EM>
+<DD>Where the breakpoint is in the source for your program, as a file and
+line number.
+</DL>
+<P>
+If a breakpoint is conditional, <CODE>info break</CODE> shows the condition on
+the line following the affected breakpoint; breakpoint commands, if any,
+are listed after that.
+<P>
+<CODE>info break</CODE> with a breakpoint
+number <VAR>n</VAR> as argument lists only that breakpoint.  The
+convenience variable <CODE>$_</CODE> and the default examining-address for
+the <CODE>x</CODE> command are set to the address of the last breakpoint
+listed (see section <A HREF="gdb_10.html#SEC58">Examining memory</A>).  
+</DL>
+<P>
+GDB allows you to set any number of breakpoints at the same place in
+your program.  There is nothing silly or meaningless about this.  When
+the breakpoints are conditional, this is even useful
+(see section <A HREF="gdb_7.html#SEC35">Break conditions</A>).
+<A NAME="IDX100"></A>
+<A NAME="IDX101"></A>
+<P>
+GDB itself sometimes sets breakpoints in your program for special
+purposes, such as proper handling of <CODE>longjmp</CODE> (in C programs).
+These internal breakpoints are assigned negative numbers, starting with
+<CODE>-1</CODE>; <SAMP>`info breakpoints'</SAMP> does not display them.
+<P>
+You can see these breakpoints with the GDB maintenance command
+<SAMP>`maint info breakpoints'</SAMP>.
+<P>
+<A NAME="IDX102"></A>
+<DL COMPACT>
+<DT><CODE>maint info breakpoints</CODE>
+<DD>Using the same format as <SAMP>`info breakpoints'</SAMP>, display both the
+breakpoints you've set explicitly, and those GDB is using for
+internal purposes.  Internal breakpoints are shown with negative
+breakpoint numbers.  The type column identifies what kind of breakpoint
+is shown:
+<P>
+<DL COMPACT>
+<DT><CODE>breakpoint</CODE>
+<DD>Normal, explicitly set breakpoint.
+<P>
+<DT><CODE>watchpoint</CODE>
+<DD>Normal, explicitly set watchpoint.
+<P>
+<DT><CODE>longjmp</CODE>
+<DD>Internal breakpoint, used to handle correctly stepping through
+<CODE>longjmp</CODE> calls.
+<P>
+<DT><CODE>longjmp resume</CODE>
+<DD>Internal breakpoint at the target of a <CODE>longjmp</CODE>.
+<P>
+<DT><CODE>until</CODE>
+<DD>Temporary internal breakpoint used by the GDB <CODE>until</CODE> command.
+<P>
+<DT><CODE>finish</CODE>
+<DD>Temporary internal breakpoint used by the GDB <CODE>finish</CODE> command.
+</DL>
+<P>
+</DL>
+<P>
+<A NAME="IDX103"></A>
+<H3><A NAME="SEC31" HREF="gdb_toc.html#SEC31">Setting watchpoints</A></H3>
+<P>
+You can use a watchpoint to stop execution whenever the value of an
+expression changes, without having to predict a particular place
+where this may happen.
+<P>
+Watchpoints currently execute two orders of magnitude more slowly than
+other breakpoints, but this can be well worth it to catch errors where
+you have no clue what part of your program is the culprit.
+<P>
+Some processors provide special hardware to support watchpoint
+evaluation; GDB will use such hardware if it is available,
+and if the support code has been added for that configuration.
+<P>
+<A NAME="IDX104"></A>
+<DL COMPACT>
+<DT><CODE>watch <VAR>expr</VAR></CODE>
+<DD>Set a watchpoint for an expression.
+<A NAME="IDX105"></A>
+<P>
+<DT><CODE>info watchpoints</CODE>
+<DD>This command prints a list of watchpoints and breakpoints; it is the
+same as <CODE>info break</CODE>.
+</DL>
+<P>
+<A NAME="IDX106"></A>
+<A NAME="IDX107"></A>
+<BLOCKQUOTE>
+<EM>Warning:</EM> in multi-thread programs, watchpoints have only limited
+usefulness.  With the current watchpoint implementation, GDB
+can only watch the value of an expression <EM>in a single thread</EM>.  If
+you are confident that the expression can only change due to the current
+thread's activity (and if you are also confident that no other thread
+can become current), then you can use watchpoints as usual.  However,
+GDB may not notice when a non-current thread's activity changes
+the expression.
+</BLOCKQUOTE>
+<P>
+<A NAME="IDX108"></A>
+<H3><A NAME="SEC32" HREF="gdb_toc.html#SEC32">Breakpoints and exceptions</A></H3>
+<P>
+Some languages, such as GNU C++, implement exception handling.  You can
+use GDB to examine what caused your program to raise an exception,
+and to list the exceptions your program is prepared to handle at a
+given point in time.
+<P>
+<DL COMPACT>
+<A NAME="IDX109"></A>
+<DT><CODE>catch <VAR>exceptions</VAR></CODE>
+<DD>You can set breakpoints at active exception handlers by using the
+<CODE>catch</CODE> command.  <VAR>exceptions</VAR> is a list of names of exceptions
+to catch.
+</DL>
+<P>
+You can use <CODE>info catch</CODE> to list active exception handlers.
+See section <A HREF="gdb_8.html#SEC46">Information about a frame</A>.
+<P>
+There are currently some limitations to exception handling in GDB:
+<P>
+<UL>
+<LI>
+If you call a function interactively, GDB normally returns
+control to you when the function has finished executing.  If the call
+raises an exception, however, the call may bypass the mechanism that
+returns control to you and cause your program to simply continue
+running until it hits a breakpoint, catches a signal that GDB is
+listening for, or exits.
+<P>
+<LI>
+You cannot raise an exception interactively.
+<P>
+<LI>
+You cannot install an exception handler interactively.
+</UL>
+<A NAME="IDX110"></A>
+<P>
+Sometimes <CODE>catch</CODE> is not the best way to debug exception handling:
+if you need to know exactly where an exception is raised, it is better to
+stop <EM>before</EM> the exception handler is called, since that way you
+can see the stack before any unwinding takes place.  If you set a
+breakpoint in an exception handler instead, it may not be easy to find
+out where the exception was raised.
+<P>
+To stop just before an exception handler is called, you need some
+knowledge of the implementation.  In the case of GNU C++, exceptions are
+raised by calling a library function named <CODE>__raise_exception</CODE>
+which has the following ANSI C interface:
+<P>
+<PRE>
+    /* <VAR>addr</VAR> is where the exception identifier is stored.
+       ID is the exception identifier.  */
+    void __raise_exception (void **<VAR>addr</VAR>, void *<VAR>id</VAR>);
+</PRE>
+<P>
+To make the debugger catch all exceptions before any stack
+unwinding takes place, set a breakpoint on <CODE>__raise_exception</CODE>
+(see section <A HREF="gdb_7.html#SEC29">Breakpoints, watchpoints, and exceptions</A>).
+<P>
+With a conditional breakpoint (see section <A HREF="gdb_7.html#SEC35">Break conditions</A>)
+that depends on the value of <VAR>id</VAR>, you can stop your program when
+a specific exception is raised.  You can use multiple conditional
+breakpoints to stop your program when any of a number of exceptions are
+raised.
+<P>
+<H3><A NAME="SEC33" HREF="gdb_toc.html#SEC33">Deleting breakpoints</A></H3>
+<A NAME="IDX111"></A>
+<A NAME="IDX112"></A>
+<P>
+It is often necessary to eliminate a breakpoint or watchpoint once it
+has done its job and you no longer want your program to stop there.  This
+is called <DFN>deleting</DFN> the breakpoint.  A breakpoint that has been
+deleted no longer exists; it is forgotten.
+<P>
+With the <CODE>clear</CODE> command you can delete breakpoints according to
+where they are in your program.  With the <CODE>delete</CODE> command you can
+delete individual breakpoints or watchpoints by specifying their
+breakpoint numbers.
+<P>
+It is not necessary to delete a breakpoint to proceed past it.  GDB
+automatically ignores breakpoints on the first instruction to be executed
+when you continue execution without changing the execution address.
+<P>
+<DL COMPACT>
+<A NAME="IDX113"></A>
+<DT><CODE>clear</CODE>
+<DD>Delete any breakpoints at the next instruction to be executed in the
+selected stack frame (see section <A HREF="gdb_8.html#SEC45">Selecting a frame</A>).  When
+the innermost frame is selected, this is a good way to delete a
+breakpoint where your program just stopped.
+<P>
+<DT><CODE>clear <VAR>function</VAR></CODE>
+<DD><DT><CODE>clear <VAR>filename</VAR>:<VAR>function</VAR></CODE>
+<DD>Delete any breakpoints set at entry to the function <VAR>function</VAR>.
+<P>
+<DT><CODE>clear <VAR>linenum</VAR></CODE>
+<DD><DT><CODE>clear <VAR>filename</VAR>:<VAR>linenum</VAR></CODE>
+<DD>Delete any breakpoints set at or within the code of the specified line.
+<P>
+<A NAME="IDX114"></A>
+<A NAME="IDX115"></A>
+<A NAME="IDX116"></A>
+<DT><CODE>delete [breakpoints] [<VAR>bnums</VAR>...]</CODE>
+<DD>Delete the breakpoints or watchpoints of the numbers specified as
+arguments.  If no argument is specified, delete all breakpoints (GDB
+asks confirmation, unless you have <CODE>set confirm off</CODE>).  You
+can abbreviate this command as <CODE>d</CODE>.
+</DL>
+<P>
+<H3><A NAME="SEC34" HREF="gdb_toc.html#SEC34">Disabling breakpoints</A></H3>
+<A NAME="IDX117"></A>
+<A NAME="IDX118"></A>
+<P>
+Rather than deleting a breakpoint or watchpoint, you might prefer to
+<DFN>disable</DFN> it.  This makes the breakpoint inoperative as if it had
+been deleted, but remembers the information on the breakpoint so that
+you can <DFN>enable</DFN> it again later.
+<P>
+You disable and enable breakpoints and watchpoints with the
+<CODE>enable</CODE> and <CODE>disable</CODE> commands, optionally specifying one or
+more breakpoint numbers as arguments.  Use <CODE>info break</CODE> or
+<CODE>info watch</CODE> to print a list of breakpoints or watchpoints if you
+do not know which numbers to use.
+<P>
+A breakpoint or watchpoint can have any of four different states of
+enablement:
+<P>
+<UL>
+<LI>
+Enabled.  The breakpoint stops your program.  A breakpoint set
+with the <CODE>break</CODE> command starts out in this state.
+<LI>
+Disabled.  The breakpoint has no effect on your program.
+<LI>
+Enabled once.  The breakpoint stops your program, but then becomes
+disabled.  A breakpoint set with the <CODE>tbreak</CODE> command starts out in
+this state.
+<LI>
+Enabled for deletion.  The breakpoint stops your program, but
+immediately after it does so it is deleted permanently.
+</UL>
+<P>
+You can use the following commands to enable or disable breakpoints and
+watchpoints:
+<P>
+<DL COMPACT>
+<A NAME="IDX119"></A>
+<A NAME="IDX120"></A>
+<A NAME="IDX121"></A>
+<DT><CODE>disable [breakpoints] [<VAR>bnums</VAR>...]</CODE>
+<DD>Disable the specified breakpoints--or all breakpoints, if none are
+listed.  A disabled breakpoint has no effect but is not forgotten.  All
+options such as ignore-counts, conditions and commands are remembered in
+case the breakpoint is enabled again later.  You may abbreviate
+<CODE>disable</CODE> as <CODE>dis</CODE>.
+<P>
+<A NAME="IDX122"></A>
+<A NAME="IDX123"></A>
+<DT><CODE>enable [breakpoints] [<VAR>bnums</VAR>...]</CODE>
+<DD>Enable the specified breakpoints (or all defined breakpoints).  They
+become effective once again in stopping your program.
+<P>
+<DT><CODE>enable [breakpoints] once <VAR>bnums</VAR>...</CODE>
+<DD>Enable the specified breakpoints temporarily.  GDB disables any
+of these breakpoints immediately after stopping your program.
+<P>
+<DT><CODE>enable [breakpoints] delete <VAR>bnums</VAR>...</CODE>
+<DD>Enable the specified breakpoints to work once, then die.  GDB
+deletes any of these breakpoints as soon as your program stops there.
+</DL>
+<P>
+Save for a breakpoint set with <CODE>tbreak</CODE> (see section <A HREF="gdb_7.html#SEC30">Setting breakpoints</A>), breakpoints that you set are initially enabled;
+subsequently, they become disabled or enabled only when you use one of
+the commands above.  (The command <CODE>until</CODE> can set and delete a
+breakpoint of its own, but it does not change the state of your other
+breakpoints; see section <A HREF="gdb_7.html#SEC39">Continuing and stepping</A>.)
+<P>
+<A NAME="IDX124"></A>
+<A NAME="IDX125"></A>
+<H3><A NAME="SEC35" HREF="gdb_toc.html#SEC35">Break conditions</A></H3>
+<P>
+The simplest sort of breakpoint breaks every time your program reaches a
+specified place.  You can also specify a <DFN>condition</DFN> for a
+breakpoint.  A condition is just a Boolean expression in your
+programming language (see section <A HREF="gdb_10.html#SEC54">Expressions</A>).  A breakpoint with
+a condition evaluates the expression each time your program reaches it,
+and your program stops only if the condition is <EM>true</EM>.
+<P>
+This is the converse of using assertions for program validation; in that
+situation, you want to stop when the assertion is violated--that is,
+when the condition is false.  In C, if you want to test an assertion expressed
+by the condition <VAR>assert</VAR>, you should set the condition
+<SAMP>`! <VAR>assert</VAR>'</SAMP> on the appropriate breakpoint.
+<P>
+Conditions are also accepted for watchpoints; you may not need them,
+since a watchpoint is inspecting the value of an expression anyhow--but
+it might be simpler, say, to just set a watchpoint on a variable name,
+and specify a condition that tests whether the new value is an interesting
+one.
+<P>
+Break conditions can have side effects, and may even call functions in
+your program.  This can be useful, for example, to activate functions
+that log program progress, or to use your own print functions to
+format special data structures. The effects are completely predictable
+unless there is another enabled breakpoint at the same address.  (In
+that case, GDB might see the other breakpoint first and stop your
+program without checking the condition of this one.)  Note that
+breakpoint commands are usually more convenient and flexible for the
+purpose of performing side effects when a breakpoint is reached
+(see section <A HREF="gdb_7.html#SEC36">Breakpoint command lists</A>).
+<P>
+Break conditions can be specified when a breakpoint is set, by using
+<SAMP>`if'</SAMP> in the arguments to the <CODE>break</CODE> command.  See section <A HREF="gdb_7.html#SEC30">Setting breakpoints</A>.  They can also be changed at any time
+with the <CODE>condition</CODE> command.  The <CODE>watch</CODE> command does not
+recognize the <CODE>if</CODE> keyword; <CODE>condition</CODE> is the only way to
+impose a further condition on a watchpoint.
+<P>
+<DL COMPACT>
+<A NAME="IDX126"></A>
+<DT><CODE>condition <VAR>bnum</VAR> <VAR>expression</VAR></CODE>
+<DD>Specify <VAR>expression</VAR> as the break condition for breakpoint or
+watchpoint number <VAR>bnum</VAR>.  After you set a condition, breakpoint
+<VAR>bnum</VAR> stops your program only if the value of <VAR>expression</VAR> is
+true (nonzero, in C).  When you use <CODE>condition</CODE>, GDB
+checks <VAR>expression</VAR> immediately for syntactic correctness, and to
+determine whether symbols in it have referents in the context of your
+breakpoint.
+GDB does
+not actually evaluate <VAR>expression</VAR> at the time the <CODE>condition</CODE>
+command is given, however.  See section <A HREF="gdb_10.html#SEC54">Expressions</A>.
+<P>
+<DT><CODE>condition <VAR>bnum</VAR></CODE>
+<DD>Remove the condition from breakpoint number <VAR>bnum</VAR>.  It becomes
+an ordinary unconditional breakpoint.
+</DL>
+<A NAME="IDX127"></A>
+<P>
+A special case of a breakpoint condition is to stop only when the
+breakpoint has been reached a certain number of times.  This is so
+useful that there is a special way to do it, using the <DFN>ignore
+count</DFN> of the breakpoint.  Every breakpoint has an ignore count, which
+is an integer.  Most of the time, the ignore count is zero, and
+therefore has no effect.  But if your program reaches a breakpoint whose
+ignore count is positive, then instead of stopping, it just decrements
+the ignore count by one and continues.  As a result, if the ignore count
+value is <VAR>n</VAR>, the breakpoint does not stop the next <VAR>n</VAR> times
+your program reaches it.
+<P>
+<DL COMPACT>
+<A NAME="IDX128"></A>
+<DT><CODE>ignore <VAR>bnum</VAR> <VAR>count</VAR></CODE>
+<DD>Set the ignore count of breakpoint number <VAR>bnum</VAR> to <VAR>count</VAR>.
+The next <VAR>count</VAR> times the breakpoint is reached, your program's
+execution does not stop; other than to decrement the ignore count, GDB
+takes no action.
+<P>
+To make the breakpoint stop the next time it is reached, specify
+a count of zero.
+<P>
+When you use <CODE>continue</CODE> to resume execution of your program from a
+breakpoint, you can specify an ignore count directly as an argument to
+<CODE>continue</CODE>, rather than using <CODE>ignore</CODE>.  See section <A HREF="gdb_7.html#SEC39">Continuing and stepping</A>.
+<P>
+If a breakpoint has a positive ignore count and a condition, the
+condition is not checked.  Once the ignore count reaches zero,
+GDB resumes checking the condition.
+<P>
+You could achieve the effect of the ignore count with a condition such
+as <SAMP>`$foo-- &#60;= 0'</SAMP> using a debugger convenience variable that
+is decremented each time.  See section <A HREF="gdb_10.html#SEC62">Convenience variables</A>.
+</DL>
+<P>
+<H3><A NAME="SEC36" HREF="gdb_toc.html#SEC36">Breakpoint command lists</A></H3>
+<A NAME="IDX129"></A>
+<P>
+You can give any breakpoint (or watchpoint) a series of commands to
+execute when your program stops due to that breakpoint.  For example, you
+might want to print the values of certain expressions, or enable other
+breakpoints.
+<P>
+<DL COMPACT>
+<DT><CODE>commands [<VAR>bnum</VAR>]</CODE>
+<DD><DT><CODE>... <VAR>command-list</VAR> ...</CODE>
+<DD><A NAME="IDX130"></A>
+<A NAME="IDX131"></A>
+<DT><CODE>end</CODE>
+<DD>Specify a list of commands for breakpoint number <VAR>bnum</VAR>.  The commands
+themselves appear on the following lines.  Type a line containing just
+<CODE>end</CODE> to terminate the commands.
+<P>
+To remove all commands from a breakpoint, type <CODE>commands</CODE> and
+follow it immediately with <CODE>end</CODE>; that is, give no commands.
+<P>
+With no <VAR>bnum</VAR> argument, <CODE>commands</CODE> refers to the last
+breakpoint or watchpoint set (not to the breakpoint most recently
+encountered).
+</DL>
+<P>
+Pressing <KBD>RET</KBD> as a means of repeating the last GDB command is
+disabled within a <VAR>command-list</VAR>.
+<P>
+You can use breakpoint commands to start your program up again.  Simply
+use the <CODE>continue</CODE> command, or <CODE>step</CODE>, or any other command
+that resumes execution.
+<P>
+Any other commands in the command list, after a command that resumes
+execution, are ignored.  This is because any time you resume execution
+(even with a simple <CODE>next</CODE> or <CODE>step</CODE>), you may encounter
+another breakpoint--which could have its own command list, leading to
+ambiguities about which list to execute.
+<A NAME="IDX132"></A>
+<P>
+If the first command you specify in a command list is <CODE>silent</CODE>, the
+usual message about stopping at a breakpoint is not printed.  This may
+be desirable for breakpoints that are to print a specific message and
+then continue.  If none of the remaining commands print anything, you
+see no sign that the breakpoint was reached.  <CODE>silent</CODE> is
+meaningful only at the beginning of a breakpoint command list.
+<P>
+The commands <CODE>echo</CODE>, <CODE>output</CODE>, and <CODE>printf</CODE> allow you to
+print precisely controlled output, and are often useful in silent
+breakpoints.  See section <A HREF="gdb_17.html#SEC143">Commands for controlled output</A>.
+<P>
+For example, here is how you could use breakpoint commands to print the
+value of <CODE>x</CODE> at entry to <CODE>foo</CODE> whenever <CODE>x</CODE> is positive.
+<P>
+<PRE>
+break foo if x&#62;0
+commands
+silent
+printf "x is %d\n",x
+cont
+end
+</PRE>
+<P>
+One application for breakpoint commands is to compensate for one bug so
+you can test for another.  Put a breakpoint just after the erroneous line
+of code, give it a condition to detect the case in which something
+erroneous has been done, and give it commands to assign correct values
+to any variables that need them.  End with the <CODE>continue</CODE> command
+so that your program does not stop, and start with the <CODE>silent</CODE>
+command so that no output is produced.  Here is an example:
+<P>
+<PRE>
+break 403
+commands
+silent
+set x = y + 4
+cont
+end
+</PRE>
+<P>
+<A NAME="IDX133"></A>
+<A NAME="IDX134"></A>
+<H3><A NAME="SEC37" HREF="gdb_toc.html#SEC37">Breakpoint menus</A></H3>
+<P>
+Some programming languages (notably C++) permit a single function name
+to be defined several times, for application in different contexts.
+This is called <DFN>overloading</DFN>.  When a function name is overloaded,
+<SAMP>`break <VAR>function</VAR>'</SAMP> is not enough to tell GDB where you want
+a breakpoint.  If you realize this is a problem, you can use
+something like <SAMP>`break <VAR>function</VAR>(<VAR>types</VAR>)'</SAMP> to specify which
+particular version of the function you want.  Otherwise, GDB offers
+you a menu of numbered choices for different possible breakpoints, and
+waits for your selection with the prompt <SAMP>`&#62;'</SAMP>.  The first two
+options are always <SAMP>`[0] cancel'</SAMP> and <SAMP>`[1] all'</SAMP>.  Typing <KBD>1</KBD>
+sets a breakpoint at each definition of <VAR>function</VAR>, and typing
+<KBD>0</KBD> aborts the <CODE>break</CODE> command without setting any new
+breakpoints.
+<P>
+For example, the following session excerpt shows an attempt to set a
+breakpoint at the overloaded symbol <CODE>String::after</CODE>.
+We choose three particular definitions of that function name:
+<P>
+<PRE>
+(gdb) b String::after
+[0] cancel
+[1] all
+[2] file:String.cc; line number:867
+[3] file:String.cc; line number:860
+[4] file:String.cc; line number:875
+[5] file:String.cc; line number:853
+[6] file:String.cc; line number:846
+[7] file:String.cc; line number:735
+&#62; 2 4 6
+Breakpoint 1 at 0xb26c: file String.cc, line 867.
+Breakpoint 2 at 0xb344: file String.cc, line 875.
+Breakpoint 3 at 0xafcc: file String.cc, line 846.
+Multiple breakpoints were set.
+Use the "delete" command to delete unwanted
+ breakpoints.
+(gdb)
+</PRE>
+<P>
+<H3><A NAME="SEC38" HREF="gdb_toc.html#SEC38">"Cannot insert breakpoints"</A></H3>
+<P>
+Under some operating systems, breakpoints cannot be used in a program if
+any other process is running that program.  In this situation,
+attempting to run or continue a program with a breakpoint causes GDB
+to stop the other process.
+<P>
+When this happens, you have three ways to proceed:
+<P>
+<OL>
+<LI>
+Remove or disable the breakpoints, then continue.
+<P>
+<LI>
+Suspend GDB, and copy the file containing your program to a new name.
+Resume GDB and use the <CODE>exec-file</CODE> command to specify that GDB
+should run your program under that name.  Then start your program again.
+<P>
+<LI>
+Relink your program so that the text segment is nonsharable, using the
+linker option <SAMP>`-N'</SAMP>.  The operating system limitation may not apply
+to nonsharable executables.
+</OL>
+<P>
+<H2><A NAME="SEC39" HREF="gdb_toc.html#SEC39">Continuing and stepping</A></H2>
+<A NAME="IDX135"></A>
+<A NAME="IDX136"></A>
+<A NAME="IDX137"></A>
+<P>
+<DFN>Continuing</DFN> means resuming program execution until your program
+completes normally.  In contrast, <DFN>stepping</DFN> means executing just
+one more "step" of your program, where "step" may mean either one
+line of source code, or one machine instruction (depending on what
+particular command you use).  Either when continuing
+or when stepping, your program may stop even sooner, due to 
+a breakpoint or a signal.  (If due to a signal, you may want to use
+<CODE>handle</CODE>, or use <SAMP>`signal 0'</SAMP> to resume execution.
+See section <A HREF="gdb_7.html#SEC40">Signals</A>.)
+<P>
+<DL COMPACT>
+<DT><CODE>continue [<VAR>ignore-count</VAR>]</CODE>
+<DD><DT><CODE>c [<VAR>ignore-count</VAR>]</CODE>
+<DD><A NAME="IDX138"></A>
+<A NAME="IDX139"></A>
+<A NAME="IDX140"></A>
+<DT><CODE>fg [<VAR>ignore-count</VAR>]</CODE>
+<DD>Resume program execution, at the address where your program last stopped;
+any breakpoints set at that address are bypassed.  The optional argument
+<VAR>ignore-count</VAR> allows you to specify a further number of times to
+ignore a breakpoint at this location; its effect is like that of
+<CODE>ignore</CODE> (see section <A HREF="gdb_7.html#SEC35">Break conditions</A>).
+<P>
+The argument <VAR>ignore-count</VAR> is meaningful only when your program
+stopped due to a breakpoint.  At other times, the argument to
+<CODE>continue</CODE> is ignored.
+<P>
+The synonyms <CODE>c</CODE> and <CODE>fg</CODE> are provided purely for convenience,
+and have exactly the same behavior as <CODE>continue</CODE>.
+</DL>
+<P>
+To resume execution at a different place, you can use <CODE>return</CODE>
+(see section <A HREF="gdb_13.html#SEC96">Returning from a function</A>) to go back to the
+calling function; or <CODE>jump</CODE> (see section <A HREF="gdb_13.html#SEC94">Continuing at a different address</A>) to go to an arbitrary location in your program.
+<P>
+A typical technique for using stepping is to set a breakpoint
+(see section <A HREF="gdb_7.html#SEC29">Breakpoints, watchpoints, and exceptions</A>)
+at the
+beginning of the function or the section of your program where a
+problem is believed to lie, run your program until it stops at that
+breakpoint, and then step through the suspect area, examining the
+variables that are interesting, until you see the problem happen.
+<P>
+<DL COMPACT>
+<A NAME="IDX141"></A>
+<A NAME="IDX142"></A>
+<DT><CODE>step</CODE>
+<DD>Continue running your program until control reaches a different source
+line, then stop it and return control to GDB.  This command is
+abbreviated <CODE>s</CODE>.
+<P>
+<BLOCKQUOTE>
+<EM>Warning:</EM> If you use the <CODE>step</CODE> command while control is
+within a function that was compiled without debugging information,
+execution proceeds until control reaches a function that does have
+debugging information.  Likewise, it will not step into a function which
+is compiled without debugging information.  To step through functions
+without debugging information, use the <CODE>stepi</CODE> command, described
+below.
+</BLOCKQUOTE>
+<P>
+<DT><CODE>step <VAR>count</VAR></CODE>
+<DD>Continue running as in <CODE>step</CODE>, but do so <VAR>count</VAR> times.  If a
+breakpoint is reached,
+or a signal not related to stepping occurs before <VAR>count</VAR> steps,
+stepping stops right away.
+<P>
+<A NAME="IDX143"></A>
+<A NAME="IDX144"></A>
+<DT><CODE>next [<VAR>count</VAR>]</CODE>
+<DD>Continue to the next source line in the current (innermost) stack frame.
+Similar to <CODE>step</CODE>, but any function calls appearing within the line
+of code are executed without stopping.  Execution stops when control
+reaches a different line of code at the stack level which was executing
+when the <CODE>next</CODE> command was given.  This command is abbreviated
+<CODE>n</CODE>.
+<P>
+An argument <VAR>count</VAR> is a repeat count, as for <CODE>step</CODE>.
+<P>
+<CODE>next</CODE> within a function that lacks debugging information acts like
+<CODE>step</CODE>, but any function calls appearing within the code of the
+function are executed without stopping.
+<P>
+<A NAME="IDX145"></A>
+<DT><CODE>finish</CODE>
+<DD>Continue running until just after function in the selected stack frame
+returns.  Print the returned value (if any).
+<P>
+Contrast this with the <CODE>return</CODE> command (see section <A HREF="gdb_13.html#SEC96">Returning from a function</A>).
+<P>
+<A NAME="IDX146"></A>
+<DT><CODE>until</CODE>
+<DD><A NAME="IDX147"></A>
+<DT><CODE>u</CODE>
+<DD>Continue running until a source line past the current line, in the
+current stack frame, is reached.  This command is used to avoid single
+stepping through a loop more than once.  It is like the <CODE>next</CODE>
+command, except that when <CODE>until</CODE> encounters a jump, it
+automatically continues execution until the program counter is greater
+than the address of the jump.
+<P>
+This means that when you reach the end of a loop after single stepping
+though it, <CODE>until</CODE> makes your program continue execution until it
+exits the loop.  In contrast, a <CODE>next</CODE> command at the end of a loop
+simply steps back to the beginning of the loop, which forces you to step
+through the next iteration.
+<P>
+<CODE>until</CODE> always stops your program if it attempts to exit the current
+stack frame.
+<P>
+<CODE>until</CODE> may produce somewhat counterintuitive results if the order
+of machine code does not match the order of the source lines.  For
+example, in the following excerpt from a debugging session, the <CODE>f</CODE>
+(<CODE>frame</CODE>) command shows that execution is stopped at line
+<CODE>206</CODE>; yet when we use <CODE>until</CODE>, we get to line <CODE>195</CODE>:
+<P>
+<PRE>
+(gdb) f
+#0  main (argc=4, argv=0xf7fffae8) at m4.c:206
+206                 expand_input();
+(gdb) until
+195             for ( ; argc &#62; 0; NEXTARG) {
+</PRE>
+<P>
+This happened because, for execution efficiency, the compiler had
+generated code for the loop closure test at the end, rather than the
+start, of the loop--even though the test in a C <CODE>for</CODE>-loop is
+written before the body of the loop.  The <CODE>until</CODE> command appeared
+to step back to the beginning of the loop when it advanced to this
+expression; however, it has not really gone to an earlier
+statement--not in terms of the actual machine code.
+<P>
+<CODE>until</CODE> with no argument works by means of single
+instruction stepping, and hence is slower than <CODE>until</CODE> with an
+argument.
+<P>
+<DT><CODE>until <VAR>location</VAR></CODE>
+<DD><DT><CODE>u <VAR>location</VAR></CODE>
+<DD>Continue running your program until either the specified location is
+reached, or the current stack frame returns.  <VAR>location</VAR> is any of
+the forms of argument acceptable to <CODE>break</CODE> (see section <A HREF="gdb_7.html#SEC30">Setting breakpoints</A>).  This form of the command uses breakpoints,
+and hence is quicker than <CODE>until</CODE> without an argument.
+<P>
+<DT><CODE>stepi</CODE>
+<DD><A NAME="IDX148"></A>
+<A NAME="IDX149"></A>
+<DT><CODE>si</CODE>
+<DD>Execute one machine instruction, then stop and return to the debugger.
+<P>
+It is often useful to do <SAMP>`display/i $pc'</SAMP> when stepping by machine
+instructions.  This makes GDB automatically display the next
+instruction to be executed, each time your program stops.  See section <A HREF="gdb_10.html#SEC59">Automatic display</A>.
+<P>
+An argument is a repeat count, as in <CODE>step</CODE>.
+<P>
+<DT><CODE>nexti</CODE>
+<DD><A NAME="IDX150"></A>
+<A NAME="IDX151"></A>
+<DT><CODE>ni</CODE>
+<DD>Execute one machine instruction, but if it is a function call,
+proceed until the function returns.
+<P>
+An argument is a repeat count, as in <CODE>next</CODE>.
+</DL>
+<P>
+<A NAME="IDX152"></A>
+<H2><A NAME="SEC40" HREF="gdb_toc.html#SEC40">Signals</A></H2>
+<P>
+A signal is an asynchronous event that can happen in a program.  The
+operating system defines the possible kinds of signals, and gives each
+kind a name and a number.  For example, in Unix <CODE>SIGINT</CODE> is the
+signal a program gets when you type an interrupt (often <KBD>C-c</KBD>);
+<CODE>SIGSEGV</CODE> is the signal a program gets from referencing a place in
+memory far away from all the areas in use; <CODE>SIGALRM</CODE> occurs when
+the alarm clock timer goes off (which happens only if your program has
+requested an alarm).
+<A NAME="IDX153"></A>
+<P>
+Some signals, including <CODE>SIGALRM</CODE>, are a normal part of the
+functioning of your program.  Others, such as <CODE>SIGSEGV</CODE>, indicate
+errors; these signals are <DFN>fatal</DFN> (kill your program immediately) if the
+program has not specified in advance some other way to handle the signal.
+<CODE>SIGINT</CODE> does not indicate an error in your program, but it is normally
+fatal so it can carry out the purpose of the interrupt: to kill the program.
+<P>
+GDB has the ability to detect any occurrence of a signal in your
+program.  You can tell GDB in advance what to do for each kind of
+signal.
+<A NAME="IDX154"></A>
+<P>
+Normally, GDB is set up to ignore non-erroneous signals like <CODE>SIGALRM</CODE>
+(so as not to interfere with their role in the functioning of your program)
+but to stop your program immediately whenever an error signal happens.
+You can change these settings with the <CODE>handle</CODE> command.
+<P>
+<DL COMPACT>
+<A NAME="IDX155"></A>
+<DT><CODE>info signals</CODE>
+<DD>Print a table of all the kinds of signals and how GDB has been told to
+handle each one.  You can use this to see the signal numbers of all
+the defined types of signals.
+<P>
+<A NAME="IDX156"></A>
+<DT><CODE>handle <VAR>signal</VAR> <VAR>keywords</VAR>...</CODE>
+<DD>Change the way GDB handles signal <VAR>signal</VAR>.  <VAR>signal</VAR> can be the
+number of a signal or its name (with or without the <SAMP>`SIG'</SAMP> at the
+beginning).  The <VAR>keywords</VAR> say what change to make.
+</DL>
+<P>
+The keywords allowed by the <CODE>handle</CODE> command can be abbreviated.
+Their full names are:
+<P>
+<DL COMPACT>
+<DT><CODE>nostop</CODE>
+<DD>GDB should not stop your program when this signal happens.  It may
+still print a message telling you that the signal has come in.
+<P>
+<DT><CODE>stop</CODE>
+<DD>GDB should stop your program when this signal happens.  This implies
+the <CODE>print</CODE> keyword as well.
+<P>
+<DT><CODE>print</CODE>
+<DD>GDB should print a message when this signal happens.
+<P>
+<DT><CODE>noprint</CODE>
+<DD>GDB should not mention the occurrence of the signal at all.  This
+implies the <CODE>nostop</CODE> keyword as well.
+<P>
+<DT><CODE>pass</CODE>
+<DD>GDB should allow your program to see this signal; your program
+can handle the signal, or else it may terminate if the signal is fatal
+and not handled.
+<P>
+<DT><CODE>nopass</CODE>
+<DD>GDB should not allow your program to see this signal.
+</DL>
+<P>
+When a signal stops your program, the signal is not visible until you
+continue.  Your program sees the signal then, if <CODE>pass</CODE> is in
+effect for the signal in question <EM>at that time</EM>.  In other words,
+after GDB reports a signal, you can use the <CODE>handle</CODE>
+command with <CODE>pass</CODE> or <CODE>nopass</CODE> to control whether your
+program sees that signal when you continue.
+<P>
+You can also use the <CODE>signal</CODE> command to prevent your program from
+seeing a signal, or cause it to see a signal it normally would not see,
+or to give it any signal at any time.  For example, if your program stopped
+due to some sort of memory reference error, you might store correct
+values into the erroneous variables and continue, hoping to see more
+execution; but your program would probably terminate immediately as
+a result of the fatal signal once it saw the signal.  To prevent this,
+you can continue with <SAMP>`signal 0'</SAMP>.  See section <A HREF="gdb_13.html#SEC95">Giving your program a signal</A>. 
+<P>
+<H2><A NAME="SEC41" HREF="gdb_toc.html#SEC41">Stopping and starting multi-thread programs</A></H2>
+<P>
+When your program has multiple threads (see section <A HREF="gdb_6.html#SEC26">Debugging programs with multiple threads</A>), you can choose whether to set
+breakpoints on all threads, or on a particular thread.
+<P>
+<A NAME="IDX157"></A>
+<A NAME="IDX158"></A>
+<A NAME="IDX159"></A>
+<DL COMPACT>
+<DT><CODE>break <VAR>linespec</VAR> thread <VAR>threadno</VAR></CODE>
+<DD><DT><CODE>break <VAR>linespec</VAR> thread <VAR>threadno</VAR> if ...</CODE>
+<DD>Use the qualifier <SAMP>`thread <VAR>threadno</VAR>'</SAMP> with a breakpoint command
+to specify that you only want GDB to stop the program when a
+particular thread reaches this breakpoint.  <VAR>threadno</VAR> is one of the
+numeric thread identifiers assigned by GDB, shown in the first
+column of the <SAMP>`info threads'</SAMP> display.
+<P>
+If you do not specify <SAMP>`thread <VAR>threadno</VAR>'</SAMP> when you set a
+breakpoint, the breakpoint applies to <EM>all</EM> threads of your
+program.
+<P>
+You can use the <CODE>thread</CODE> qualifier on conditional breakpoints as
+well; in this case, place <SAMP>`thread <VAR>threadno</VAR>'</SAMP> before the
+breakpoint condition, like this:
+<P>
+<PRE>
+(gdb) break frik.c:13 thread 28 if bartab &#62; lim
+</PRE>
+</DL>
+<A NAME="IDX160"></A>
+<A NAME="IDX161"></A>
+<P>
+Whenever your program stops under GDB for any reason,
+<EM>all</EM> threads of execution stop, not just the current thread.  This
+allows you to examine the overall state of the program, including
+switching between threads, without worrying that things may change
+underfoot.
+<A NAME="IDX162"></A>
+<A NAME="IDX163"></A>
+<P>
+Conversely, whenever you restart the program, <EM>all</EM> threads start
+executing.  <EM>This is true even when single-stepping</EM> with commands
+like <CODE>step</CODE> or <CODE>next</CODE>.  
+<P>
+In particular, GDB cannot single-step all threads in lockstep.
+Since thread scheduling is up to your debugging target's operating
+system (not controlled by GDB), other threads may
+execute more than one statement while the current thread completes a
+single step.  Moreover, in general other threads stop in the middle of a
+statement, rather than at a clean statement boundary, when the program
+stops.
+<P>
+You might even find your program stopped in another thread after
+continuing or even single-stepping.  This happens whenever some other
+thread runs into a breakpoint, a signal, or an exception before the
+first thread completes whatever you requested.
+<P>
+<P>Go to the <A HREF="gdb_6.html">previous</A>, <A HREF="gdb_8.html">next</A> section.<P>

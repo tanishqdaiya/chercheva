@@ -1,0 +1,236 @@
+<!-- This HTML file has been created by texi2html 1.30
+     from /afs/.athena/project/gnu/src/gdb-4.14/gdb/doc/gdb.texinfo on 6 July 1995 -->
+
+<TITLE>Debugging with GDB - Altering Execution</TITLE>
+<P>Go to the <A HREF="gdb_12.html">previous</A>, <A HREF="gdb_14.html">next</A> section.<P>
+<H1><A NAME="SEC92" HREF="gdb_toc.html#SEC92">Altering Execution</A></H1>
+<P>
+Once you think you have found an error in your program, you might want to
+find out for certain whether correcting the apparent error would lead to
+correct results in the rest of the run.  You can find the answer by
+experiment, using the GDB features for altering execution of the
+program.
+<P>
+For example, you can store new values into variables or memory
+locations,
+give your program a signal, restart it
+at a different address, or even return prematurely from a function to
+its caller.
+<P>
+<H2><A NAME="SEC93" HREF="gdb_toc.html#SEC93">Assignment to variables</A></H2>
+<A NAME="IDX383"></A>
+<A NAME="IDX384"></A>
+<P>
+To alter the value of a variable, evaluate an assignment expression.
+See section <A HREF="gdb_10.html#SEC54">Expressions</A>.  For example,
+<P>
+<PRE>
+print x=4
+</PRE>
+<P>
+stores the value 4 into the variable <CODE>x</CODE>, and then prints the
+value of the assignment expression (which is 4).  
+See section <A HREF="gdb_11.html#SEC65">Using GDB with Different Languages</A>, for more
+information on operators in supported languages.
+<A NAME="IDX385"></A>
+<A NAME="IDX386"></A>
+<P>
+If you are not interested in seeing the value of the assignment, use the
+<CODE>set</CODE> command instead of the <CODE>print</CODE> command.  <CODE>set</CODE> is
+really the same as <CODE>print</CODE> except that the expression's value is
+not printed and is not put in the value history (see section <A HREF="gdb_10.html#SEC61">Value history</A>).  The expression is evaluated only for its effects.
+<P>
+If the beginning of the argument string of the <CODE>set</CODE> command
+appears identical to a <CODE>set</CODE> subcommand, use the <CODE>set
+variable</CODE> command instead of just <CODE>set</CODE>.  This command is identical
+to <CODE>set</CODE> except for its lack of subcommands.  For example, if
+your program has a variable <CODE>width</CODE>, you get
+an error if you try to set a new value with just <SAMP>`set width=13'</SAMP>,
+because GDB has the command <CODE>set width</CODE>:
+<P>
+<PRE>
+(gdb) whatis width
+type = double
+(gdb) p width
+$4 = 13
+(gdb) set width=47
+Invalid syntax in expression.
+</PRE>
+<P>
+The invalid expression, of course, is <SAMP>`=47'</SAMP>.  In
+order to actually set the program's variable <CODE>width</CODE>, use
+<P>
+<PRE>
+(gdb) set var width=47
+</PRE>
+<P>
+GDB allows more implicit conversions in assignments than C; you can
+freely store an integer value into a pointer variable or vice versa,
+and you can convert any structure to any other structure that is the
+same length or shorter.
+<P>
+To store values into arbitrary places in memory, use the <SAMP>`{...}'</SAMP>
+construct to generate a value of specified type at a specified address
+(see section <A HREF="gdb_10.html#SEC54">Expressions</A>).  For example, <CODE>{int}0x83040</CODE> refers
+to memory location <CODE>0x83040</CODE> as an integer (which implies a certain size
+and representation in memory), and
+<P>
+<PRE>
+set {int}0x83040 = 4
+</PRE>
+<P>
+stores the value 4 into that memory location.
+<P>
+<H2><A NAME="SEC94" HREF="gdb_toc.html#SEC94">Continuing at a different address</A></H2>
+<P>
+Ordinarily, when you continue your program, you do so at the place where
+it stopped, with the <CODE>continue</CODE> command.  You can instead continue at
+an address of your own choosing, with the following commands:
+<P>
+<DL COMPACT>
+<A NAME="IDX387"></A>
+<DT><CODE>jump <VAR>linespec</VAR></CODE>
+<DD>Resume execution at line <VAR>linespec</VAR>.  Execution stops again
+immediately if there is a breakpoint there.  See section <A HREF="gdb_9.html#SEC49">Printing source lines</A>, for a description of the different forms of
+<VAR>linespec</VAR>.
+<P>
+The <CODE>jump</CODE> command does not change the current stack frame, or
+the stack pointer, or the contents of any memory location or any
+register other than the program counter.  If line <VAR>linespec</VAR> is in
+a different function from the one currently executing, the results may
+be bizarre if the two functions expect different patterns of arguments or
+of local variables.  For this reason, the <CODE>jump</CODE> command requests
+confirmation if the specified line is not in the function currently
+executing.  However, even bizarre results are predictable if you are
+well acquainted with the machine-language code of your program.
+<P>
+<DT><CODE>jump *<VAR>address</VAR></CODE>
+<DD>Resume execution at the instruction at address <VAR>address</VAR>.
+</DL>
+<P>
+You can get much the same effect as the <CODE>jump</CODE> command by storing a
+new value into the register <CODE>$pc</CODE>.  The difference is that this
+does not start your program running; it only changes the address where it
+<EM>will</EM> run when you continue.  For example,
+<P>
+<PRE>
+set $pc = 0x485
+</PRE>
+<P>
+makes the next <CODE>continue</CODE> command or stepping command execute at
+address <CODE>0x485</CODE>, rather than at the address where your program stopped.
+See section <A HREF="gdb_7.html#SEC39">Continuing and stepping</A>.
+<P>
+The most common occasion to use the <CODE>jump</CODE> command is to back up,
+perhaps with more breakpoints set, over a portion of a program that has
+already executed, in order to examine its execution in more detail.
+<P>
+<H2><A NAME="SEC95" HREF="gdb_toc.html#SEC95">Giving your program a signal</A></H2>
+<P>
+<DL COMPACT>
+<A NAME="IDX388"></A>
+<DT><CODE>signal <VAR>signal</VAR></CODE>
+<DD>Resume execution where your program stopped, but immediately give it the
+signal <VAR>signal</VAR>.  <VAR>signal</VAR> can be the name or the number of a
+signal.  For example, on many systems <CODE>signal 2</CODE> and <CODE>signal
+SIGINT</CODE> are both ways of sending an interrupt signal.
+<P>
+Alternatively, if <VAR>signal</VAR> is zero, continue execution without
+giving a signal.  This is useful when your program stopped on account of
+a signal and would ordinary see the signal when resumed with the
+<CODE>continue</CODE> command; <SAMP>`signal 0'</SAMP> causes it to resume without a
+signal.
+<P>
+<CODE>signal</CODE> does not repeat when you press <KBD>RET</KBD> a second time
+after executing the command.
+</DL>
+<P>
+Invoking the <CODE>signal</CODE> command is not the same as invoking the
+<CODE>kill</CODE> utility from the shell.  Sending a signal with <CODE>kill</CODE>
+causes GDB to decide what to do with the signal depending on
+the signal handling tables (see section <A HREF="gdb_7.html#SEC40">Signals</A>).  The <CODE>signal</CODE> command
+passes the signal directly to your program.
+<P>
+<H2><A NAME="SEC96" HREF="gdb_toc.html#SEC96">Returning from a function</A></H2>
+<P>
+<DL COMPACT>
+<DT><CODE>return</CODE>
+<DD><A NAME="IDX389"></A>
+<A NAME="IDX390"></A>
+<DT><CODE>return <VAR>expression</VAR></CODE>
+<DD>You can cancel execution of a function call with the <CODE>return</CODE>
+command.  If you give an
+<VAR>expression</VAR> argument, its value is used as the function's return
+value.
+</DL>
+<P>
+When you use <CODE>return</CODE>, GDB discards the selected stack frame
+(and all frames within it).  You can think of this as making the
+discarded frame return prematurely.  If you wish to specify a value to
+be returned, give that value as the argument to <CODE>return</CODE>.
+<P>
+This pops the selected stack frame (see section <A HREF="gdb_8.html#SEC45">Selecting a frame</A>), and any other frames inside of it, leaving its caller as the
+innermost remaining frame.  That frame becomes selected.  The
+specified value is stored in the registers used for returning values
+of functions.
+<P>
+The <CODE>return</CODE> command does not resume execution; it leaves the
+program stopped in the state that would exist if the function had just
+returned.  In contrast, the <CODE>finish</CODE> command (see section <A HREF="gdb_7.html#SEC39">Continuing and stepping</A>) resumes execution until the
+selected stack frame returns naturally.
+<P>
+<H2><A NAME="SEC97" HREF="gdb_toc.html#SEC97">Calling program functions</A></H2>
+<A NAME="IDX391"></A>
+<A NAME="IDX392"></A>
+<P>
+<DL COMPACT>
+<DT><CODE>call <VAR>expr</VAR></CODE>
+<DD>Evaluate the expression <VAR>expr</VAR> without displaying <CODE>void</CODE>
+returned values.
+</DL>
+<P>
+You can use this variant of the <CODE>print</CODE> command if you want to
+execute a function from your program, but without cluttering the output
+with <CODE>void</CODE> returned values.  The result is printed and saved in
+the value history, if it is not void.
+<P>
+<A NAME="IDX393"></A>
+<A NAME="IDX394"></A>
+<A NAME="IDX395"></A>
+<H2><A NAME="SEC98" HREF="gdb_toc.html#SEC98">Patching programs</A></H2>
+<P>
+By default, GDB opens the file containing your program's executable
+code
+(or the corefile)
+read-only.  This prevents accidental alterations
+to machine code; but it also prevents you from intentionally patching
+your program's binary.
+<P>
+If you'd like to be able to patch the binary, you can specify that
+explicitly with the <CODE>set write</CODE> command.  For example, you might
+want to turn on internal debugging flags, or even to make emergency
+repairs.
+<P>
+<DL COMPACT>
+<DT><CODE>set write on</CODE>
+<DD><A NAME="IDX396"></A>
+<DT><CODE>set write off</CODE>
+<DD>If you specify <SAMP>`set write on'</SAMP>, GDB opens executable 
+and core
+files for both reading and writing; if you specify <SAMP>`set write
+off'</SAMP> (the default), GDB opens them read-only.
+<P>
+If you have already loaded a file, you must load it again (using the
+<CODE>exec-file</CODE>
+or <CODE>core-file</CODE>
+command) after changing <CODE>set write</CODE>, for your new setting to take
+effect.
+<P>
+<A NAME="IDX397"></A>
+<DT><CODE>show write</CODE>
+<DD>Display whether executable files 
+and core files 
+are opened for writing as well as reading.
+</DL>
+<P>
+<P>Go to the <A HREF="gdb_12.html">previous</A>, <A HREF="gdb_14.html">next</A> section.<P>

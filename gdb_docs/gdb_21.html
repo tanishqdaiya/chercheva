@@ -1,0 +1,118 @@
+<!-- This HTML file has been created by texi2html 1.30
+     from /afs/.athena/project/gnu/src/gdb-4.14/gdb/doc/gdb.texinfo on 6 July 1995 -->
+
+<TITLE>Debugging with GDB - Using History Interactively</TITLE>
+<P>Go to the <A HREF="gdb_20.html">previous</A>, <A HREF="gdb_22.html">next</A> section.<P>
+<H1><A NAME="SEC165" HREF="gdb_toc.html#SEC165">Using History Interactively</A></H1>
+<P>
+This chapter describes how to use the GNU History Library interactively,
+from a user's standpoint.
+<P>
+<A NAME="IDX659"></A>
+<H2><A NAME="SEC166" HREF="gdb_toc.html#SEC166">History Interaction</A></H2>
+<P>
+The History library provides a history expansion feature that is similar
+to the history expansion in Csh.  The following text describes the sytax
+that you use to manipulate the history information.
+<P>
+History expansion takes place in two parts.  The first is to determine
+which line from the previous history should be used during substitution.
+The second is to select portions of that line for inclusion into the
+current one.  The line selected from the previous history is called the
+<DFN>event</DFN>, and the portions of that line that are acted upon are
+called <DFN>words</DFN>.  The line is broken into words in the same fashion
+that the Bash shell does, so that several English (or Unix) words
+surrounded by quotes are considered as one word.
+<P>
+<A NAME="IDX660"></A>
+<H3><A NAME="SEC167" HREF="gdb_toc.html#SEC167">Event Designators</A></H3>
+<P>
+An event designator is a reference to a command line entry in the
+history list.
+<P>
+<DL COMPACT>
+<P>
+<DT><CODE>!</CODE>
+<DD>Start a history subsititution, except when followed by a space, tab, or
+the end of the line... <KBD>=</KBD> or <KBD>(</KBD>.
+<P>
+<DT><CODE>!!</CODE>
+<DD>Refer to the previous command.  This is a synonym for <CODE>!-1</CODE>.
+<P>
+<DT><CODE>!n</CODE>
+<DD>Refer to command line <VAR>n</VAR>.
+<P>
+<DT><CODE>!-n</CODE>
+<DD>Refer to the command line <VAR>n</VAR> lines back.
+<P>
+<DT><CODE>!string</CODE>
+<DD>Refer to the most recent command starting with <VAR>string</VAR>.
+<P>
+<DT><CODE>!?string</CODE>[<CODE>?</CODE>]
+<DD>Refer to the most recent command containing <VAR>string</VAR>.
+<P>
+</DL>
+<P>
+<H3><A NAME="SEC168" HREF="gdb_toc.html#SEC168">Word Designators</A></H3>
+<P>
+A <KBD>:</KBD> separates the event specification from the word designator.  It
+can be omitted if the word designator begins with a <KBD>^</KBD>, <KBD>$</KBD>,
+<KBD>*</KBD> or <KBD>%</KBD>.  Words are numbered from the beginning of the line,
+with the first word being denoted by a 0 (zero).
+<P>
+<DL COMPACT>
+<P>
+<DT><CODE>0 (zero)</CODE>
+<DD>The zero'th word.  For many applications, this is the command word.
+<P>
+<DT><CODE>n</CODE>
+<DD>The <VAR>n</VAR>'th word.
+<P>
+<DT><CODE>^</CODE>
+<DD>The first argument.  that is, word 1.
+<P>
+<DT><CODE>$</CODE>
+<DD>The last argument.
+<P>
+<DT><CODE>%</CODE>
+<DD>The word matched by the most recent <CODE>?string?</CODE> search.
+<P>
+<DT><CODE>x-y</CODE>
+<DD>A range of words; <CODE>-<VAR>y</VAR></CODE> Abbreviates <CODE>0-<VAR>y</VAR></CODE>.
+<P>
+<DT><CODE>*</CODE>
+<DD>All of the words, excepting the zero'th.  This is a synonym for <CODE>1-$</CODE>.
+It is not an error to use <KBD>*</KBD> if there is just one word in the event.
+The empty string is returned in that case.
+<P>
+</DL>
+<P>
+<H3><A NAME="SEC169" HREF="gdb_toc.html#SEC169">Modifiers</A></H3>
+<P>
+After the optional word designator, you can add a sequence of one or more
+of the following modifiers, each preceded by a <KBD>:</KBD>.
+<P>
+<DL COMPACT>
+<P>
+<DT><CODE>#</CODE>
+<DD>The entire command line typed so far.  This means the current command,
+not the previous command, so it really isn't a word designator, and doesn't
+belong in this section.
+<P>
+<DT><CODE>h</CODE>
+<DD>Remove a trailing pathname component, leaving only the head.
+<P>
+<DT><CODE>r</CODE>
+<DD>Remove a trailing suffix of the form <SAMP>`.'</SAMP><VAR>suffix</VAR>, leaving the basename.
+<P>
+<DT><CODE>e</CODE>
+<DD>Remove all but the suffix.
+<P>
+<DT><CODE>t</CODE>
+<DD>Remove all leading  pathname  components, leaving the tail.
+<P>
+<DT><CODE>p</CODE>
+<DD>Print the new command but do not execute it.
+</DL>
+<P>
+<P>Go to the <A HREF="gdb_20.html">previous</A>, <A HREF="gdb_22.html">next</A> section.<P>

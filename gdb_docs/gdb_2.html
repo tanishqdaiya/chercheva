@@ -1,0 +1,88 @@
+<!-- This HTML file has been created by texi2html 1.30
+     from /afs/.athena/project/gnu/src/gdb-4.14/gdb/doc/gdb.texinfo on 6 July 1995 -->
+
+<TITLE>Debugging with GDB - New Features since GDB Version 3.5</TITLE>
+<P>Go to the <A HREF="gdb_1.html">previous</A>, <A HREF="gdb_3.html">next</A> section.<P>
+<H1><A NAME="SEC4" HREF="gdb_toc.html#SEC4">New Features since GDB Version 3.5</A></H1>
+<P>
+<DL COMPACT>
+<DT><EM>Targets</EM>
+<DD>Using the new command <CODE>target</CODE>, you can select at runtime whether
+you are debugging local files, local processes, standalone systems over
+a serial port, or realtime systems over a TCP/IP connection.  The
+command <CODE>load</CODE> can download programs into a remote system.  Serial
+stubs are available for Motorola 680x0, Intel 80386, and Sparc remote
+systems; GDB also supports debugging realtime processes running under
+VxWorks, using SunRPC Remote Procedure Calls over TCP/IP to talk to a
+debugger stub on the target system.  Internally, GDB now uses a function
+vector to mediate access to different targets; if you need to add your
+own support for a remote protocol, this makes it much easier.
+<P>
+<DT><EM>Watchpoints</EM>
+<DD>GDB now sports watchpoints as well as breakpoints.  You can use a
+watchpoint to stop execution whenever the value of an expression
+changes, without having to predict a particular place in your program
+where this may happen.
+<P>
+<DT><EM>Wide Output</EM>
+<DD>Commands that issue wide output now insert newlines at places designed
+to make the output more readable.
+<P>
+<DT><EM>Object Code Formats</EM>
+<DD>GDB uses a new library called the Binary File Descriptor (BFD) Library
+to permit it to switch dynamically, without reconfiguration or
+recompilation, between different object-file formats.  Formats currently
+supported are COFF, ELF, a.out, Intel 960 b.out, MIPS ECOFF, HPPA SOM
+(with stabs debugging), and S-records; files may be read as .o files,
+archive libraries, or core dumps.  BFD is available as a subroutine
+library so that other programs may take advantage of it, and the other
+GNU binary utilities are being converted to use it.
+<P>
+<DT><EM>Configuration and Ports</EM>
+<DD>Compile-time configuration (to select a particular architecture and
+operating system) is much easier.  The script <CODE>configure</CODE> now
+allows you to configure GDB as either a native debugger or a
+cross-debugger. See section <A HREF="gdb_24.html#SEC172">Installing GDB</A>, for details on how to
+configure.
+<P>
+<DT><EM>Interaction</EM>
+<DD>The user interface to the GDB control variables is simpler,
+and is consolidated in two commands, <CODE>set</CODE> and <CODE>show</CODE>.  Output
+lines are now broken at readable places, rather than overflowing onto
+the next line.  You can suppress output of machine-level addresses,
+displaying only source language information.
+<P>
+<DT><EM>C++</EM>
+<DD>GDB now supports C++ multiple inheritance (if used with a GCC
+version 2 compiler), and also has limited support for C++ exception
+handling, with the commands <CODE>catch</CODE> and <CODE>info catch</CODE>: GDB
+can break when an exception is raised, before the stack is peeled back
+to the exception handler's context.
+<P>
+<DT><EM>Modula-2</EM>
+<DD>GDB now has preliminary support for the GNU Modula-2 compiler, currently
+under development at the State University of New York at Buffalo.
+Coordinated development of both GDB and the GNU Modula-2 compiler will
+continue.  Other Modula-2 compilers are currently not supported, and
+attempting to debug programs compiled with them will likely result in an
+error as the symbol table of the executable is read in.
+<P>
+<DT><EM>Command Rationalization</EM>
+<DD>Many GDB commands have been renamed to make them easier to remember
+and use.  In particular, the subcommands of <CODE>info</CODE> and
+<CODE>show</CODE>/<CODE>set</CODE> are grouped to make the former refer to the state
+of your program, and the latter refer to the state of GDB itself.
+See section <A HREF="gdb_22.html#SEC170">Renamed Commands</A>, for details on what commands were renamed.
+<P>
+<DT><EM>Shared Libraries</EM>
+<DD>GDB 4 can debug programs and core files that use SunOS, SVR4, or IBM RS/6000
+shared libraries.
+<P>
+<DT><EM>Threads</EM>
+<DD>On some systems, GDB 4 has facilities to debug multi-thread programs.
+<P>
+<DT><EM>Reference Card</EM>
+<DD>GDB 4 has a reference card.  See section <A HREF="gdb_23.html#SEC171">Formatting Documentation</A>, for instructions about how to print it.
+</DL>
+<P>
+<P>Go to the <A HREF="gdb_1.html">previous</A>, <A HREF="gdb_3.html">next</A> section.<P>

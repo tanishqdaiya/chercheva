@@ -1,0 +1,1097 @@
+<!-- This HTML file has been created by texi2html 1.30
+     from /afs/.athena/project/gnu/src/gdb-4.14/gdb/doc/gdb.texinfo on 6 July 1995 -->
+
+<TITLE>Debugging with GDB - Using GDB with Different Languages</TITLE>
+<P>Go to the <A HREF="gdb_10.html">previous</A>, <A HREF="gdb_12.html">next</A> section.<P>
+<A NAME="IDX308"></A>
+<H1><A NAME="SEC65" HREF="gdb_toc.html#SEC65">Using GDB with Different Languages</A></H1>
+<P>
+Although programming languages generally have common aspects, they are
+rarely expressed in the same manner.  For instance, in ANSI C,
+dereferencing a pointer <CODE>p</CODE> is accomplished by <CODE>*p</CODE>, but in
+Modula-2, it is accomplished by <CODE>p^</CODE>.  Values can also be
+represented (and displayed) differently.  Hex numbers in C are written
+like <SAMP>`0x1ae'</SAMP>, while in Modula-2 they appear as <SAMP>`1AEH'</SAMP>.
+<A NAME="IDX309"></A>
+<P>
+Language-specific information is built into GDB for some languages,
+allowing you to express operations like the above in your program's
+native language, and allowing GDB to output values in a manner
+consistent with the syntax of your program's native language.  The
+language you use to build expressions, called the <DFN>working
+language</DFN>, can be selected manually, or GDB can set it
+automatically.
+<P>
+<H2><A NAME="SEC66" HREF="gdb_toc.html#SEC66">Switching between source languages</A></H2>
+<P>
+There are two ways to control the working language--either have GDB
+set it automatically, or select it manually yourself.  You can use the
+<CODE>set language</CODE> command for either purpose.  On startup, GDB
+defaults to setting the language automatically.
+<P>
+<H3><A NAME="SEC67" HREF="gdb_toc.html#SEC67">Setting the working language</A></H3>
+<P>
+If you allow GDB to set the language automatically,
+expressions are interpreted the same way in your debugging session and
+your program.
+<A NAME="IDX310"></A>
+<P>
+If you wish, you may set the language manually.  To do this, issue the
+command <SAMP>`set language <VAR>lang</VAR>'</SAMP>, where <VAR>lang</VAR> is the name of
+a language, such as 
+<CODE>c</CODE> or <CODE>modula-2</CODE>.
+For a list of the supported languages, type <SAMP>`set language'</SAMP>.
+<P>
+Setting the language manually prevents GDB from updating the working
+language automatically.  This can lead to confusion if you try
+to debug a program when the working language is not the same as the
+source language, when an expression is acceptable to both
+languages--but means different things.  For instance, if the current
+source file were written in C, and GDB was parsing Modula-2, a
+command such as:
+<P>
+<PRE>
+print a = b + c
+</PRE>
+<P>
+might not have the effect you intended.  In C, this means to add
+<CODE>b</CODE> and <CODE>c</CODE> and place the result in <CODE>a</CODE>.  The result
+printed would be the value of <CODE>a</CODE>.  In Modula-2, this means to compare
+<CODE>a</CODE> to the result of <CODE>b+c</CODE>, yielding a <CODE>BOOLEAN</CODE> value.
+<P>
+<H3><A NAME="SEC68" HREF="gdb_toc.html#SEC68">Having GDB infer the source language</A></H3>
+<P>
+To have GDB set the working language automatically, use <SAMP>`set
+language local'</SAMP> or <SAMP>`set language auto'</SAMP>.  GDB then infers the
+language that a program was written in by looking at the name of its
+source files, and examining their extensions:
+<P>
+<DL COMPACT>
+<DT><TT>`*.mod'</TT>
+<DD>Modula-2 source file
+<P>
+<DT><TT>`*.c'</TT>
+<DD>C source file
+<P>
+<DT><TT>`*.C'</TT>
+<DD><DT><TT>`*.cc'</TT>
+<DD>C++ source file
+</DL>
+<P>
+This information is recorded for each function or procedure in a source
+file.  When your program stops in a frame (usually by encountering a
+breakpoint), GDB sets the working language to the language recorded
+for the function in that frame.  If the language for a frame is unknown
+(that is, if the function or block corresponding to the frame was
+defined in a source file that does not have a recognized extension), the
+current working language is not changed, and GDB issues a warning.
+<P>
+This may not seem necessary for most programs, which are written
+entirely in one source language.  However, program modules and libraries
+written in one source language can be used by a main program written in
+a different source language.  Using <SAMP>`set language auto'</SAMP> in this
+case frees you from having to set the working language manually.
+<P>
+<H2><A NAME="SEC69" HREF="gdb_toc.html#SEC69">Displaying the language</A></H2>
+<P>
+The following commands help you find out which language is the
+working language, and also what language source files were written in.
+<A NAME="IDX311"></A>
+<A NAME="IDX312"></A>
+<A NAME="IDX313"></A>
+<P>
+<DL COMPACT>
+<DT><CODE>show language</CODE>
+<DD>Display the current working language.  This is the
+language you can use with commands such as <CODE>print</CODE> to
+build and compute expressions that may involve variables in your program.
+<P>
+<DT><CODE>info frame</CODE>
+<DD>Among the other information listed here (see section <A HREF="gdb_8.html#SEC46">Information about a frame</A>) is the source language for this frame.  This
+language becomes the working language if you use an
+identifier from this frame.
+<P>
+<DT><CODE>info source</CODE>
+<DD>Among the other information listed here (see section <A HREF="gdb_12.html#SEC91">Examining the Symbol Table</A>) is the source language of this source file.
+</DL>
+<P>
+<H2><A NAME="SEC70" HREF="gdb_toc.html#SEC70">Type and range checking</A></H2>
+<P>
+<BLOCKQUOTE>
+<EM>Warning:</EM> In this release, the GDB commands for type and range
+checking are included, but they do not yet have any effect.  This
+section documents the intended facilities.
+</BLOCKQUOTE>
+<P>
+Some languages are designed to guard you against making seemingly common
+errors through a series of compile- and run-time checks.  These include
+checking the type of arguments to functions and operators, and making
+sure mathematical overflows are caught at run time.  Checks such as
+these help to ensure a program's correctness once it has been compiled
+by eliminating type mismatches, and providing active checks for range
+errors when your program is running.
+<P>
+GDB can check for conditions like the above if you wish.
+Although GDB does not check the statements in your program, it
+can check expressions entered directly into GDB for evaluation via
+the <CODE>print</CODE> command, for example.  As with the working language,
+GDB can also decide whether or not to check automatically based on
+your program's source language.  See section <A HREF="gdb_11.html#SEC73">Supported languages</A>,
+for the default settings of supported languages.
+<P>
+<A NAME="IDX314"></A>
+<A NAME="IDX315"></A>
+<P>
+<H3><A NAME="SEC71" HREF="gdb_toc.html#SEC71">An overview of type checking</A></H3>
+<P>
+Some languages, such as Modula-2, are strongly typed, meaning that the
+arguments to operators and functions have to be of the correct type,
+otherwise an error occurs.  These checks prevent type mismatch
+errors from ever causing any run-time problems.  For example,
+<P>
+<PRE>
+1 + 2 => 3
+but
+error--> 1 + 2.3
+</PRE>
+<P>
+The second example fails because the <CODE>CARDINAL</CODE> 1 is not
+type-compatible with the <CODE>REAL</CODE> 2.3.
+<P>
+For expressions you use in GDB commands, you can tell the GDB
+type checker to skip checking; to treat any mismatches as errors and
+abandon the expression; or only issue warnings when type mismatches
+occur, but evaluate the expression anyway.  When you choose the last of
+these, GDB evaluates expressions like the second example above, but
+also issues a warning.
+<P>
+Even though you may turn type checking off, other type-based reasons may
+prevent GDB from evaluating an expression.  For instance, GDB does not
+know how to add an <CODE>int</CODE> and a <CODE>struct foo</CODE>.  These particular
+type errors have nothing to do with the language in use, and usually
+arise from expressions, such as the one described above, which make
+little sense to evaluate anyway.
+<P>
+Each language defines to what degree it is strict about type.  For
+instance, both Modula-2 and C require the arguments to arithmetical
+operators to be numbers.  In C, enumerated types and pointers can be
+represented as numbers, so that they are valid arguments to mathematical
+operators.  See section <A HREF="gdb_11.html#SEC73">Supported languages</A>, for further
+details on specific languages.
+<P>
+GDB provides some additional commands for controlling the type checker:
+<A NAME="IDX316"></A>
+<A NAME="IDX317"></A>
+<A NAME="IDX318"></A>
+<P>
+<DL COMPACT>
+<DT><CODE>set check type auto</CODE>
+<DD>Set type checking on or off based on the current working language.
+See section <A HREF="gdb_11.html#SEC73">Supported languages</A>, for the default settings for
+each language.
+<P>
+<DT><CODE>set check type on</CODE>
+<DD><DT><CODE>set check type off</CODE>
+<DD>Set type checking on or off, overriding the default setting for the
+current working language.  Issue a warning if the setting does not
+match the language default.  If any type mismatches occur in
+evaluating an expression while typechecking is on, GDB prints a
+message and aborts evaluation of the expression.
+<P>
+<DT><CODE>set check type warn</CODE>
+<DD>Cause the type checker to issue warnings, but to always attempt to
+evaluate the expression.  Evaluating the expression may still
+be impossible for other reasons.  For example, GDB cannot add
+numbers and structures.
+<P>
+<DT><CODE>show type</CODE>
+<DD>Show the current setting of the type checker, and whether or not GDB is
+setting it automatically.
+</DL>
+<A NAME="IDX319"></A>
+<A NAME="IDX320"></A>
+<P>
+<H3><A NAME="SEC72" HREF="gdb_toc.html#SEC72">An overview of range checking</A></H3>
+<P>
+In some languages (such as Modula-2), it is an error to exceed the
+bounds of a type; this is enforced with run-time checks.  Such range
+checking is meant to ensure program correctness by making sure
+computations do not overflow, or indices on an array element access do
+not exceed the bounds of the array.
+<P>
+For expressions you use in GDB commands, you can tell
+GDB to treat range errors in one of three ways: ignore them,
+always treat them as errors and abandon the expression, or issue
+warnings but evaluate the expression anyway.
+<P>
+A range error can result from numerical overflow, from exceeding an
+array index bound, or when you type a constant that is not a member
+of any type.  Some languages, however, do not treat overflows as an
+error.  In many implementations of C, mathematical overflow causes the
+result to "wrap around" to lower values--for example, if <VAR>m</VAR> is
+the largest integer value, and <VAR>s</VAR> is the smallest, then
+<P>
+<PRE>
+<VAR>m</VAR> + 1 => <VAR>s</VAR>
+</PRE>
+<P>
+This, too, is specific to individual languages, and in some cases
+specific to individual compilers or machines.  See section <A HREF="gdb_11.html#SEC73">Supported languages</A>, for further details on specific languages.
+<P>
+GDB provides some additional commands for controlling the range checker:
+<A NAME="IDX321"></A>
+<A NAME="IDX322"></A>
+<A NAME="IDX323"></A>
+<P>
+<DL COMPACT>
+<DT><CODE>set check range auto</CODE>
+<DD>Set range checking on or off based on the current working language.
+See section <A HREF="gdb_11.html#SEC73">Supported languages</A>, for the default settings for
+each language.
+<P>
+<DT><CODE>set check range on</CODE>
+<DD><DT><CODE>set check range off</CODE>
+<DD>Set range checking on or off, overriding the default setting for the
+current working language.  A warning is issued if the setting does not
+match the language default.  If a range error occurs, then a message
+is printed and evaluation of the expression is aborted.
+<P>
+<DT><CODE>set check range warn</CODE>
+<DD>Output messages when the GDB range checker detects a range error,
+but attempt to evaluate the expression anyway.  Evaluating the
+expression may still be impossible for other reasons, such as accessing
+memory that the process does not own (a typical example from many Unix
+systems).
+<P>
+<DT><CODE>show range</CODE>
+<DD>Show the current setting of the range checker, and whether or not it is
+being set automatically by GDB.
+</DL>
+<P>
+<H2><A NAME="SEC73" HREF="gdb_toc.html#SEC73">Supported languages</A></H2>
+<P>
+GDB 4 supports C, C++, and Modula-2.
+Some GDB features may be used in expressions regardless of the
+language you use: the GDB <CODE>@</CODE> and <CODE>::</CODE> operators,
+and the <SAMP>`{type}addr'</SAMP> construct (see section <A HREF="gdb_10.html#SEC54">Expressions</A>) can be used with the constructs of any supported
+language.
+<P>
+The following sections detail to what degree each source language is
+supported by GDB.  These sections are not meant to be language
+tutorials or references, but serve only as a reference guide to what the
+GDB expression parser accepts, and what input and output
+formats should look like for different languages.  There are many good
+books written on each of these languages; please look to these for a
+language reference or tutorial.
+<P>
+<A NAME="IDX324"></A>
+<A NAME="IDX325"></A>
+<H3><A NAME="SEC74" HREF="gdb_toc.html#SEC74">C and C++</A></H3>
+<P>
+Since C and C++ are so closely related, many features of GDB apply
+to both languages.  Whenever this is the case, we discuss both languages
+together.
+<A NAME="IDX326"></A>
+<A NAME="IDX327"></A>
+<A NAME="IDX328"></A>
+<P>
+The C++ debugging facilities are jointly implemented by the GNU C++
+compiler and GDB.  Therefore, to debug your C++ code
+effectively, you must compile your C++ programs with the GNU C++
+compiler, <CODE>g++</CODE>.
+<P>
+For best results when debugging C++ programs, use the stabs debugging
+format.  You can select that format explicitly with the <CODE>g++</CODE>
+command-line options <SAMP>`-gstabs'</SAMP> or <SAMP>`-gstabs+'</SAMP>.  See
+section `Options for Debugging Your Program or GNU CC' in <CITE>Using GNU CC</CITE>, for more information.
+<A NAME="IDX329"></A>
+<P>
+<H4><A NAME="SEC75" HREF="gdb_toc.html#SEC75">C and C++ operators</A></H4>
+<P>
+Operators must be defined on values of specific types.  For instance,
+<CODE>+</CODE> is defined on numbers, but not on structures.  Operators are
+often defined on groups of types.  
+<P>
+For the purposes of C and C++, the following definitions hold:
+<P>
+<UL>
+<LI>
+<EM>Integral types</EM> include <CODE>int</CODE> with any of its storage-class
+specifiers; <CODE>char</CODE>; and <CODE>enum</CODE>.
+<P>
+<LI>
+<EM>Floating-point types</EM> include <CODE>float</CODE> and <CODE>double</CODE>.
+<P>
+<LI>
+<EM>Pointer types</EM> include all types defined as <CODE>(<VAR>type</VAR>
+*)</CODE>.
+<P>
+<LI>
+<EM>Scalar types</EM> include all of the above.
+</UL>
+<P>
+The following operators are supported.  They are listed here
+in order of increasing precedence:
+<P>
+<DL COMPACT>
+<DT><CODE>,</CODE>
+<DD>The comma or sequencing operator.  Expressions in a comma-separated list
+are evaluated from left to right, with the result of the entire
+expression being the last expression evaluated.
+<P>
+<DT><CODE>=</CODE>
+<DD>Assignment.  The value of an assignment expression is the value
+assigned.  Defined on scalar types.
+<P>
+<DT><CODE><VAR>op</VAR>=</CODE>
+<DD>Used in an expression of the form <CODE><VAR>a</VAR> <VAR>op</VAR>= <VAR>b</VAR></CODE>,
+and translated to <CODE><VAR>a</VAR> = <VAR>a op b</VAR></CODE>.
+<CODE><VAR>op</VAR>=</CODE> and <CODE>=</CODE> have the same precendence.
+<VAR>op</VAR> is any one of the operators <CODE>|</CODE>, <CODE>^</CODE>, <CODE>&#38;</CODE>,
+<CODE>&#60;&#60;</CODE>, <CODE>&#62;&#62;</CODE>, <CODE>+</CODE>, <CODE>-</CODE>, <CODE>*</CODE>, <CODE>/</CODE>, <CODE>%</CODE>.
+<P>
+<DT><CODE>?:</CODE>
+<DD>The ternary operator.  <CODE><VAR>a</VAR> ? <VAR>b</VAR> : <VAR>c</VAR></CODE> can be thought
+of as:  if <VAR>a</VAR> then <VAR>b</VAR> else <VAR>c</VAR>.  <VAR>a</VAR> should be of an
+integral type.
+<P>
+<DT><CODE>||</CODE>
+<DD>Logical OR.  Defined on integral types.
+<P>
+<DT><CODE>&#38;&#38;</CODE>
+<DD>Logical AND.  Defined on integral types.
+<P>
+<DT><CODE>|</CODE>
+<DD>Bitwise OR.  Defined on integral types.
+<P>
+<DT><CODE>^</CODE>
+<DD>Bitwise exclusive-OR.  Defined on integral types.
+<P>
+<DT><CODE>&#38;</CODE>
+<DD>Bitwise AND.  Defined on integral types.
+<P>
+<DT><CODE>==, !=</CODE>
+<DD>Equality and inequality.  Defined on scalar types.  The value of these
+expressions is 0 for false and non-zero for true.
+<P>
+<DT><CODE>&#60;, &#62;, &#60;=, &#62;=</CODE>
+<DD>Less than, greater than, less than or equal, greater than or equal.
+Defined on scalar types.  The value of these expressions is 0 for false
+and non-zero for true.
+<P>
+<DT><CODE>&#60;&#60;, &#62;&#62;</CODE>
+<DD>left shift, and right shift.  Defined on integral types.
+<P>
+<DT><CODE>@</CODE>
+<DD>The GDB "artificial array" operator (see section <A HREF="gdb_10.html#SEC54">Expressions</A>).
+<P>
+<DT><CODE>+, -</CODE>
+<DD>Addition and subtraction.  Defined on integral types, floating-point types and
+pointer types.
+<P>
+<DT><CODE>*, /, %</CODE>
+<DD>Multiplication, division, and modulus.  Multiplication and division are
+defined on integral and floating-point types.  Modulus is defined on
+integral types.
+<P>
+<DT><CODE>++, --</CODE>
+<DD>Increment and decrement.  When appearing before a variable, the
+operation is performed before the variable is used in an expression;
+when appearing after it, the variable's value is used before the
+operation takes place.
+<P>
+<DT><CODE>*</CODE>
+<DD>Pointer dereferencing.  Defined on pointer types.  Same precedence as
+<CODE>++</CODE>.
+<P>
+<DT><CODE>&#38;</CODE>
+<DD>Address operator.  Defined on variables.  Same precedence as <CODE>++</CODE>.
+<P>
+For debugging C++, GDB implements a use of <SAMP>`&#38;'</SAMP> beyond what is
+allowed in the C++ language itself: you can use <SAMP>`&#38;(&#38;<VAR>ref</VAR>)'</SAMP>
+(or, if you prefer, simply <SAMP>`&#38;&#38;<VAR>ref</VAR>'</SAMP>) to examine the address
+where a C++ reference variable (declared with <SAMP>`&#38;<VAR>ref</VAR>'</SAMP>) is
+stored.
+<P>
+<DT><CODE>-</CODE>
+<DD>Negative.  Defined on integral and floating-point types.  Same
+precedence as <CODE>++</CODE>.
+<P>
+<DT><CODE>!</CODE>
+<DD>Logical negation.  Defined on integral types.  Same precedence as
+<CODE>++</CODE>.
+<P>
+<DT><CODE>~</CODE>
+<DD>Bitwise complement operator.  Defined on integral types.  Same precedence as
+<CODE>++</CODE>.
+<P>
+<DT><CODE>., -&#62;</CODE>
+<DD>Structure member, and pointer-to-structure member.  For convenience,
+GDB regards the two as equivalent, choosing whether to dereference a
+pointer based on the stored type information.
+Defined on <CODE>struct</CODE> and <CODE>union</CODE> data.
+<P>
+<DT><CODE>[]</CODE>
+<DD>Array indexing.  <CODE><VAR>a</VAR>[<VAR>i</VAR>]</CODE> is defined as
+<CODE>*(<VAR>a</VAR>+<VAR>i</VAR>)</CODE>.  Same precedence as <CODE>-&#62;</CODE>.
+<P>
+<DT><CODE>()</CODE>
+<DD>Function parameter list.  Same precedence as <CODE>-&#62;</CODE>.
+<P>
+<DT><CODE>::</CODE>
+<DD>C++ scope resolution operator.  Defined on
+<CODE>struct</CODE>, <CODE>union</CODE>, and <CODE>class</CODE> types.
+<P>
+<DT><CODE>::</CODE>
+<DD>Doubled colons
+also
+represent the GDB scope operator (see section <A HREF="gdb_10.html#SEC54">Expressions</A>).
+Same precedence as <CODE>::</CODE>, above.
+</DL>
+<A NAME="IDX330"></A>
+<P>
+<H4><A NAME="SEC76" HREF="gdb_toc.html#SEC76">C and C++ constants</A></H4>
+<P>
+GDB allows you to express the constants of C and C++ in the
+following ways:
+<P>
+<UL>
+<LI>
+Integer constants are a sequence of digits.  Octal constants are
+specified by a leading <SAMP>`0'</SAMP> (ie. zero), and hexadecimal constants by
+a leading <SAMP>`0x'</SAMP> or <SAMP>`0X'</SAMP>.  Constants may also end with a letter
+<SAMP>`l'</SAMP>, specifying that the constant should be treated as a
+<CODE>long</CODE> value.
+<P>
+<LI>
+Floating point constants are a sequence of digits, followed by a decimal
+point, followed by a sequence of digits, and optionally followed by an
+exponent.  An exponent is of the form:
+<SAMP>`e[[+]|-]<VAR>nnn</VAR>'</SAMP>, where <VAR>nnn</VAR> is another
+sequence of digits.  The <SAMP>`+'</SAMP> is optional for positive exponents.
+<P>
+<LI>
+Enumerated constants consist of enumerated identifiers, or their
+integral equivalents.
+<P>
+<LI>
+Character constants are a single character surrounded by single quotes
+(<CODE>'</CODE>), or a number--the ordinal value of the corresponding character
+(usually its ASCII value).  Within quotes, the single character may
+be represented by a letter or by <DFN>escape sequences</DFN>, which are of
+the form <SAMP>`\<VAR>nnn</VAR>'</SAMP>, where <VAR>nnn</VAR> is the octal representation
+of the character's ordinal value; or of the form <SAMP>`\<VAR>x</VAR>'</SAMP>, where
+<SAMP>`<VAR>x</VAR>'</SAMP> is a predefined special character--for example,
+<SAMP>`\n'</SAMP> for newline.
+<P>
+<LI>
+String constants are a sequence of character constants surrounded
+by double quotes (<CODE>"</CODE>).
+<P>
+<LI>
+Pointer constants are an integral value.  You can also write pointers
+to constants using the C operator <SAMP>`&#38;'</SAMP>.
+<P>
+<LI>
+Array constants are comma-separated lists surrounded by braces <SAMP>`{'</SAMP>
+and <SAMP>`}'</SAMP>; for example, <SAMP>`{1,2,3}'</SAMP> is a three-element array of
+integers, <SAMP>`{{1,2}, {3,4}, {5,6}}'</SAMP> is a three-by-two array,
+and <SAMP>`{&#38;"hi", &#38;"there", &#38;"fred"}'</SAMP> is a three-element array of pointers.
+</UL>
+<P>
+<H4><A NAME="SEC77" HREF="gdb_toc.html#SEC77">C++ expressions</A></H4>
+<A NAME="IDX331"></A>
+<P>
+GDB expression handling has a number of extensions to
+interpret a significant subset of C++ expressions.
+<A NAME="IDX332"></A>
+<A NAME="IDX333"></A>
+<A NAME="IDX334"></A>
+<A NAME="IDX335"></A>
+<A NAME="IDX336"></A>
+<A NAME="IDX337"></A>
+<A NAME="IDX338"></A>
+<A NAME="IDX339"></A>
+<A NAME="IDX340"></A>
+<P>
+<BLOCKQUOTE>
+<EM>Warning:</EM> GDB can only debug C++ code if you compile with
+the GNU C++ compiler.  Moreover, C++ debugging depends on the use of
+additional debugging information in the symbol table, and thus requires
+special support.  GDB has this support <EM>only</EM> with the
+stabs debug format.  In particular, if your compiler generates a.out,
+MIPS ECOFF, RS/6000 XCOFF, or ELF with stabs extensions
+to the symbol table, these facilities are all available.  (With GNU CC,
+you can use the <SAMP>`-gstabs'</SAMP> option to request stabs debugging
+extensions explicitly.)  Where the object code format is standard
+COFF or DWARF in ELF, on the other hand, most of the C++
+support in GDB does <EM>not</EM> work.
+</BLOCKQUOTE>
+<P>
+<OL>
+<A NAME="IDX341"></A>
+<P>
+<LI>
+Member function calls are allowed; you can use expressions like
+<P>
+<PRE>
+count = aml-&#62;GetOriginal(x, y)
+</PRE>
+<A NAME="IDX342"></A>
+<A NAME="IDX343"></A>
+<P>
+<LI>
+While a member function is active (in the selected stack frame), your
+expressions have the same namespace available as the member function;
+that is, GDB allows implicit references to the class instance
+pointer <CODE>this</CODE> following the same rules as C++.
+<A NAME="IDX344"></A>
+<A NAME="IDX345"></A>
+<P>
+<LI>
+You can call overloaded functions; GDB resolves the function
+call to the right definition, with one restriction--you must use
+arguments of the type required by the function that you want to call.
+GDB does not perform conversions requiring constructors or
+user-defined type operators.
+<A NAME="IDX346"></A>
+<P>
+<LI>
+GDB understands variables declared as C++ references; you can use them in
+expressions just as you do in C++ source--they are automatically
+dereferenced.
+<P>
+In the parameter list shown when GDB displays a frame, the values of
+reference variables are not displayed (unlike other variables); this
+avoids clutter, since references are often used for large structures.
+The <EM>address</EM> of a reference variable is always shown, unless
+you have specified <SAMP>`set print address off'</SAMP>.
+<P>
+<LI>
+GDB supports the C++ name resolution operator <CODE>::</CODE>---your
+expressions can use it just as expressions in your program do.  Since
+one scope may be defined in another, you can use <CODE>::</CODE> repeatedly if
+necessary, for example in an expression like
+<SAMP>`<VAR>scope1</VAR>::<VAR>scope2</VAR>::<VAR>name</VAR>'</SAMP>.  GDB also allows
+resolving name scope by reference to source files, in both C and C++
+debugging (see section <A HREF="gdb_10.html#SEC55">Program variables</A>).
+</OL>
+<P>
+<A NAME="IDX347"></A>
+<H4><A NAME="SEC78" HREF="gdb_toc.html#SEC78">C and C++ defaults</A></H4>
+<P>
+If you allow GDB to set type and range checking automatically, they
+both default to <CODE>off</CODE> whenever the working language changes to
+C or C++.  This happens regardless of whether you, or GDB,
+selected the working language.
+<P>
+If you allow GDB to set the language automatically, it sets the
+working language to C or C++ on entering code compiled from a source file
+whose name ends with <TT>`.c'</TT>, <TT>`.C'</TT>, or <TT>`.cc'</TT>.
+See section <A HREF="gdb_11.html#SEC68">Having GDB infer the source language</A>, for
+further details.
+<P>
+<A NAME="IDX348"></A>
+<H4><A NAME="SEC79" HREF="gdb_toc.html#SEC79">C and C++ type and range checks</A></H4>
+<P>
+By default, when GDB parses C or C++ expressions, type checking
+is not used.  However, if you turn type checking on, GDB
+considers two variables type equivalent if:
+<P>
+<UL>
+<LI>
+The two variables are structured and have the same structure, union, or
+enumerated tag.
+<P>
+<LI>
+Two two variables have the same type name, or types that have been
+declared equivalent through <CODE>typedef</CODE>.
+<P>
+</UL>
+<P>
+Range checking, if turned on, is done on mathematical operations.  Array
+indices are not checked, since they are often used to index a pointer
+that is not itself an array.
+<P>
+<H4><A NAME="SEC80" HREF="gdb_toc.html#SEC80">GDB and C</A></H4>
+<P>
+The <CODE>set print union</CODE> and <CODE>show print union</CODE> commands apply to
+the <CODE>union</CODE> type.  When set to <SAMP>`on'</SAMP>, any <CODE>union</CODE> that is
+inside a <CODE>struct</CODE>
+or <CODE>class</CODE>
+is also printed.
+Otherwise, it appears as <SAMP>`{...}'</SAMP>.
+<P>
+The <CODE>@</CODE> operator aids in the debugging of dynamic arrays, formed
+with pointers and a memory allocation function.  See section <A HREF="gdb_10.html#SEC54">Expressions</A>.
+<P>
+<H4><A NAME="SEC81" HREF="gdb_toc.html#SEC81">GDB features for C++</A></H4>
+<A NAME="IDX349"></A>
+<P>
+Some GDB commands are particularly useful with C++, and some are
+designed specifically for use with C++.  Here is a summary:
+<P>
+<A NAME="IDX350"></A>
+<DL COMPACT>
+<DT><CODE>breakpoint menus</CODE>
+<DD>When you want a breakpoint in a function whose name is overloaded,
+GDB breakpoint menus help you specify which function definition
+you want.  See section <A HREF="gdb_7.html#SEC37">Breakpoint menus</A>.
+<A NAME="IDX351"></A>
+<P>
+<DT><CODE>rbreak <VAR>regex</VAR></CODE>
+<DD>Setting breakpoints using regular expressions is helpful for setting
+breakpoints on overloaded functions that are not members of any special
+classes.
+See section <A HREF="gdb_7.html#SEC30">Setting breakpoints</A>.
+<A NAME="IDX352"></A>
+<P>
+<DT><CODE>catch <VAR>exceptions</VAR></CODE>
+<DD><DT><CODE>info catch</CODE>
+<DD>Debug C++ exception handling using these commands.  See section <A HREF="gdb_7.html#SEC32">Breakpoints and exceptions</A>.
+<A NAME="IDX353"></A>
+<P>
+<DT><CODE>ptype <VAR>typename</VAR></CODE>
+<DD>Print inheritance relationships as well as other information for type
+<VAR>typename</VAR>.
+See section <A HREF="gdb_12.html#SEC91">Examining the Symbol Table</A>.
+<A NAME="IDX354"></A>
+<P>
+<DT><CODE>set print demangle</CODE>
+<DD><DT><CODE>show print demangle</CODE>
+<DD><DT><CODE>set print asm-demangle</CODE>
+<DD><DT><CODE>show print asm-demangle</CODE>
+<DD>Control whether C++ symbols display in their source form, both when
+displaying code as C++ source and when displaying disassemblies.
+See section <A HREF="gdb_10.html#SEC60">Print settings</A>.
+<P>
+<DT><CODE>set print object</CODE>
+<DD><DT><CODE>show print object</CODE>
+<DD>Choose whether to print derived (actual) or declared types of objects.
+See section <A HREF="gdb_10.html#SEC60">Print settings</A>.
+<P>
+<DT><CODE>set print vtbl</CODE>
+<DD><DT><CODE>show print vtbl</CODE>
+<DD>Control the format for printing virtual function tables.
+See section <A HREF="gdb_10.html#SEC60">Print settings</A>.
+<P>
+<DT><CODE>Overloaded symbol names</CODE>
+<DD>You can specify a particular definition of an overloaded symbol, using
+the same notation that is used to declare such symbols in C++: type
+<CODE><VAR>symbol</VAR>(<VAR>types</VAR>)</CODE> rather than just <VAR>symbol</VAR>.  You can
+also use the GDB command-line word completion facilities to list the
+available choices, or to finish the type list for you.
+See section <A HREF="gdb_5.html#SEC14">Command completion</A>, for details on how to do this.
+</DL>
+<P>
+<A NAME="IDX355"></A>
+<H3><A NAME="SEC82" HREF="gdb_toc.html#SEC82">Modula-2</A></H3>
+<P>
+The extensions made to GDB to support Modula-2 only support
+output from the GNU Modula-2 compiler (which is currently being
+developed).  Other Modula-2 compilers are not currently supported, and
+attempting to debug executables produced by them is most likely
+to give an error as GDB reads in the executable's symbol
+table.
+<A NAME="IDX356"></A>
+<P>
+<A NAME="IDX357"></A>
+<H4><A NAME="SEC83" HREF="gdb_toc.html#SEC83">Operators</A></H4>
+<P>
+Operators must be defined on values of specific types.  For instance,
+<CODE>+</CODE> is defined on numbers, but not on structures.  Operators are
+often defined on groups of types.  For the purposes of Modula-2, the
+following definitions hold:
+<P>
+<UL>
+<P>
+<LI>
+<EM>Integral types</EM> consist of <CODE>INTEGER</CODE>, <CODE>CARDINAL</CODE>, and
+their subranges.
+<P>
+<LI>
+<EM>Character types</EM> consist of <CODE>CHAR</CODE> and its subranges.
+<P>
+<LI>
+<EM>Floating-point types</EM> consist of <CODE>REAL</CODE>.
+<P>
+<LI>
+<EM>Pointer types</EM> consist of anything declared as <CODE>POINTER TO
+<VAR>type</VAR></CODE>.
+<P>
+<LI>
+<EM>Scalar types</EM> consist of all of the above.
+<P>
+<LI>
+<EM>Set types</EM> consist of <CODE>SET</CODE> and <CODE>BITSET</CODE> types.
+<P>
+<LI>
+<EM>Boolean types</EM> consist of <CODE>BOOLEAN</CODE>.
+</UL>
+<P>
+The following operators are supported, and appear in order of
+increasing precedence:
+<P>
+<DL COMPACT>
+<DT><CODE>,</CODE>
+<DD>Function argument or array index separator.
+<P>
+<DT><CODE>:=</CODE>
+<DD>Assignment.  The value of <VAR>var</VAR> <CODE>:=</CODE> <VAR>value</VAR> is
+<VAR>value</VAR>.
+<P>
+<DT><CODE>&#60;, &#62;</CODE>
+<DD>Less than, greater than on integral, floating-point, or enumerated
+types.
+<P>
+<DT><CODE>&#60;=, &#62;=</CODE>
+<DD>Less than, greater than, less than or equal to, greater than or equal to
+on integral, floating-point and enumerated types, or set inclusion on
+set types.  Same precedence as <CODE>&#60;</CODE>.
+<P>
+<DT><CODE>=, &#60;&#62;, #</CODE>
+<DD>Equality and two ways of expressing inequality, valid on scalar types.
+Same precedence as <CODE>&#60;</CODE>.  In GDB scripts, only <CODE>&#60;&#62;</CODE> is
+available for inequality, since <CODE>#</CODE> conflicts with the script
+comment character.
+<P>
+<DT><CODE>IN</CODE>
+<DD>Set membership.  Defined on set types and the types of their members.
+Same precedence as <CODE>&#60;</CODE>.
+<P>
+<DT><CODE>OR</CODE>
+<DD>Boolean disjunction.  Defined on boolean types.
+<P>
+<DT><CODE>AND, &#38;</CODE>
+<DD>Boolean conjuction.  Defined on boolean types.
+<P>
+<DT><CODE>@</CODE>
+<DD>The GDB "artificial array" operator (see section <A HREF="gdb_10.html#SEC54">Expressions</A>).
+<P>
+<DT><CODE>+, -</CODE>
+<DD>Addition and subtraction on integral and floating-point types, or union
+and difference on set types.
+<P>
+<DT><CODE>*</CODE>
+<DD>Multiplication on integral and floating-point types, or set intersection
+on set types.
+<P>
+<DT><CODE>/</CODE>
+<DD>Division on floating-point types, or symmetric set difference on set
+types.  Same precedence as <CODE>*</CODE>.
+<P>
+<DT><CODE>DIV, MOD</CODE>
+<DD>Integer division and remainder.  Defined on integral types.  Same
+precedence as <CODE>*</CODE>.
+<P>
+<DT><CODE>-</CODE>
+<DD>Negative. Defined on <CODE>INTEGER</CODE> and <CODE>REAL</CODE> data.
+<P>
+<DT><CODE>^</CODE>
+<DD>Pointer dereferencing.  Defined on pointer types.
+<P>
+<DT><CODE>NOT</CODE>
+<DD>Boolean negation.  Defined on boolean types.  Same precedence as
+<CODE>^</CODE>.
+<P>
+<DT><CODE>.</CODE>
+<DD><CODE>RECORD</CODE> field selector.  Defined on <CODE>RECORD</CODE> data.  Same
+precedence as <CODE>^</CODE>.
+<P>
+<DT><CODE>[]</CODE>
+<DD>Array indexing.  Defined on <CODE>ARRAY</CODE> data.  Same precedence as <CODE>^</CODE>.
+<P>
+<DT><CODE>()</CODE>
+<DD>Procedure argument list.  Defined on <CODE>PROCEDURE</CODE> objects.  Same precedence
+as <CODE>^</CODE>.
+<P>
+<DT><CODE>::, .</CODE>
+<DD>GDB and Modula-2 scope operators.
+</DL>
+<P>
+<BLOCKQUOTE>
+<EM>Warning:</EM> Sets and their operations are not yet supported, so GDB
+treats the use of the operator <CODE>IN</CODE>, or the use of operators
+<CODE>+</CODE>, <CODE>-</CODE>, <CODE>*</CODE>, <CODE>/</CODE>, <CODE>=</CODE>, , <CODE>&#60;&#62;</CODE>, <CODE>#</CODE>,
+<CODE>&#60;=</CODE>, and <CODE>&#62;=</CODE> on sets as an error.
+</BLOCKQUOTE>
+<A NAME="IDX358"></A>
+<P>
+<H4><A NAME="SEC84" HREF="gdb_toc.html#SEC84">Built-in functions and procedures</A></H4>
+<P>
+Modula-2 also makes available several built-in procedures and functions.
+In describing these, the following metavariables are used:
+<P>
+<DL COMPACT>
+<P>
+<DT><VAR>a</VAR>
+<DD>represents an <CODE>ARRAY</CODE> variable.
+<P>
+<DT><VAR>c</VAR>
+<DD>represents a <CODE>CHAR</CODE> constant or variable.
+<P>
+<DT><VAR>i</VAR>
+<DD>represents a variable or constant of integral type.
+<P>
+<DT><VAR>m</VAR>
+<DD>represents an identifier that belongs to a set.  Generally used in the
+same function with the metavariable <VAR>s</VAR>.  The type of <VAR>s</VAR> should
+be <CODE>SET OF <VAR>mtype</VAR></CODE> (where <VAR>mtype</VAR> is the type of <VAR>m</VAR>).
+<P>
+<DT><VAR>n</VAR>
+<DD>represents a variable or constant of integral or floating-point type.
+<P>
+<DT><VAR>r</VAR>
+<DD>represents a variable or constant of floating-point type.
+<P>
+<DT><VAR>t</VAR>
+<DD>represents a type.
+<P>
+<DT><VAR>v</VAR>
+<DD>represents a variable.
+<P>
+<DT><VAR>x</VAR>
+<DD>represents a variable or constant of one of many types.  See the
+explanation of the function for details.
+</DL>
+<P>
+All Modula-2 built-in procedures also return a result, described below.
+<P>
+<DL COMPACT>
+<DT><CODE>ABS(<VAR>n</VAR>)</CODE>
+<DD>Returns the absolute value of <VAR>n</VAR>.
+<P>
+<DT><CODE>CAP(<VAR>c</VAR>)</CODE>
+<DD>If <VAR>c</VAR> is a lower case letter, it returns its upper case
+equivalent, otherwise it returns its argument
+<P>
+<DT><CODE>CHR(<VAR>i</VAR>)</CODE>
+<DD>Returns the character whose ordinal value is <VAR>i</VAR>.
+<P>
+<DT><CODE>DEC(<VAR>v</VAR>)</CODE>
+<DD>Decrements the value in the variable <VAR>v</VAR>.  Returns the new value.
+<P>
+<DT><CODE>DEC(<VAR>v</VAR>,<VAR>i</VAR>)</CODE>
+<DD>Decrements the value in the variable <VAR>v</VAR> by <VAR>i</VAR>.  Returns the
+new value.
+<P>
+<DT><CODE>EXCL(<VAR>m</VAR>,<VAR>s</VAR>)</CODE>
+<DD>Removes the element <VAR>m</VAR> from the set <VAR>s</VAR>.  Returns the new
+set.
+<P>
+<DT><CODE>FLOAT(<VAR>i</VAR>)</CODE>
+<DD>Returns the floating point equivalent of the integer <VAR>i</VAR>.
+<P>
+<DT><CODE>HIGH(<VAR>a</VAR>)</CODE>
+<DD>Returns the index of the last member of <VAR>a</VAR>.
+<P>
+<DT><CODE>INC(<VAR>v</VAR>)</CODE>
+<DD>Increments the value in the variable <VAR>v</VAR>.  Returns the new value.
+<P>
+<DT><CODE>INC(<VAR>v</VAR>,<VAR>i</VAR>)</CODE>
+<DD>Increments the value in the variable <VAR>v</VAR> by <VAR>i</VAR>.  Returns the
+new value.
+<P>
+<DT><CODE>INCL(<VAR>m</VAR>,<VAR>s</VAR>)</CODE>
+<DD>Adds the element <VAR>m</VAR> to the set <VAR>s</VAR> if it is not already
+there.  Returns the new set.
+<P>
+<DT><CODE>MAX(<VAR>t</VAR>)</CODE>
+<DD>Returns the maximum value of the type <VAR>t</VAR>.
+<P>
+<DT><CODE>MIN(<VAR>t</VAR>)</CODE>
+<DD>Returns the minimum value of the type <VAR>t</VAR>.
+<P>
+<DT><CODE>ODD(<VAR>i</VAR>)</CODE>
+<DD>Returns boolean TRUE if <VAR>i</VAR> is an odd number.
+<P>
+<DT><CODE>ORD(<VAR>x</VAR>)</CODE>
+<DD>Returns the ordinal value of its argument.  For example, the ordinal
+value of a character is its ASCII value (on machines supporting the
+ASCII character set).  <VAR>x</VAR> must be of an ordered type, which include
+integral, character and enumerated types.
+<P>
+<DT><CODE>SIZE(<VAR>x</VAR>)</CODE>
+<DD>Returns the size of its argument.  <VAR>x</VAR> can be a variable or a type.
+<P>
+<DT><CODE>TRUNC(<VAR>r</VAR>)</CODE>
+<DD>Returns the integral part of <VAR>r</VAR>.
+<P>
+<DT><CODE>VAL(<VAR>t</VAR>,<VAR>i</VAR>)</CODE>
+<DD>Returns the member of the type <VAR>t</VAR> whose ordinal value is <VAR>i</VAR>.
+</DL>
+<P>
+<BLOCKQUOTE>
+<EM>Warning:</EM>  Sets and their operations are not yet supported, so
+GDB treats the use of procedures <CODE>INCL</CODE> and <CODE>EXCL</CODE> as
+an error.
+</BLOCKQUOTE>
+<A NAME="IDX359"></A>
+<P>
+<H4><A NAME="SEC85" HREF="gdb_toc.html#SEC85">Constants</A></H4>
+<P>
+GDB allows you to express the constants of Modula-2 in the following
+ways:
+<P>
+<UL>
+<P>
+<LI>
+Integer constants are simply a sequence of digits.  When used in an
+expression, a constant is interpreted to be type-compatible with the
+rest of the expression.  Hexadecimal integers are specified by a
+trailing <SAMP>`H'</SAMP>, and octal integers by a trailing <SAMP>`B'</SAMP>.
+<P>
+<LI>
+Floating point constants appear as a sequence of digits, followed by a
+decimal point and another sequence of digits.  An optional exponent can
+then be specified, in the form <SAMP>`E[+|-]<VAR>nnn</VAR>'</SAMP>, where
+<SAMP>`[+|-]<VAR>nnn</VAR>'</SAMP> is the desired exponent.  All of the
+digits of the floating point constant must be valid decimal (base 10)
+digits.
+<P>
+<LI>
+Character constants consist of a single character enclosed by a pair of
+like quotes, either single (<CODE>'</CODE>) or double (<CODE>"</CODE>).  They may
+also be expressed by their ordinal value (their ASCII value, usually)
+followed by a <SAMP>`C'</SAMP>.
+<P>
+<LI>
+String constants consist of a sequence of characters enclosed by a
+pair of like quotes, either single (<CODE>'</CODE>) or double (<CODE>"</CODE>).
+Escape sequences in the style of C are also allowed.  See section <A HREF="gdb_11.html#SEC76">C and C++ constants</A>, for a brief explanation of escape
+sequences.
+<P>
+<LI>
+Enumerated constants consist of an enumerated identifier.
+<P>
+<LI>
+Boolean constants consist of the identifiers <CODE>TRUE</CODE> and
+<CODE>FALSE</CODE>.
+<P>
+<LI>
+Pointer constants consist of integral values only.
+<P>
+<LI>
+Set constants are not yet supported.
+</UL>
+<P>
+<A NAME="IDX360"></A>
+<H4><A NAME="SEC86" HREF="gdb_toc.html#SEC86">Modula-2 defaults</A></H4>
+<P>
+If type and range checking are set automatically by GDB, they
+both default to <CODE>on</CODE> whenever the working language changes to
+Modula-2.  This happens regardless of whether you, or GDB,
+selected the working language.
+<P>
+If you allow GDB to set the language automatically, then entering
+code compiled from a file whose name ends with <TT>`.mod'</TT> sets the
+working language to Modula-2. See section <A HREF="gdb_11.html#SEC68">Having GDB infer the source language</A>, for further details.
+<P>
+<A NAME="IDX361"></A>
+<H4><A NAME="SEC87" HREF="gdb_toc.html#SEC87">Deviations from standard Modula-2</A></H4>
+<P>
+A few changes have been made to make Modula-2 programs easier to debug.
+This is done primarily via loosening its type strictness:
+<P>
+<UL>
+<LI>
+Unlike in standard Modula-2, pointer constants can be formed by
+integers.  This allows you to modify pointer variables during
+debugging.  (In standard Modula-2, the actual address contained in a
+pointer variable is hidden from you; it can only be modified
+through direct assignment to another pointer variable or expression that
+returned a pointer.)
+<P>
+<LI>
+C escape sequences can be used in strings and characters to represent
+non-printable characters.  GDB prints out strings with these
+escape sequences embedded.  Single non-printable characters are
+printed using the <SAMP>`CHR(<VAR>nnn</VAR>)'</SAMP> format.
+<P>
+<LI>
+The assignment operator (<CODE>:=</CODE>) returns the value of its right-hand
+argument.
+<P>
+<LI>
+All built-in procedures both modify <EM>and</EM> return their argument.
+</UL>
+<P>
+<A NAME="IDX362"></A>
+<H4><A NAME="SEC88" HREF="gdb_toc.html#SEC88">Modula-2 type and range checks</A></H4>
+<P>
+<BLOCKQUOTE>
+<EM>Warning:</EM> in this release, GDB does not yet perform type or
+range checking.
+</BLOCKQUOTE>
+<P>
+GDB considers two Modula-2 variables type equivalent if:
+<P>
+<UL>
+<LI>
+They are of types that have been declared equivalent via a <CODE>TYPE
+<VAR>t1</VAR> = <VAR>t2</VAR></CODE> statement
+<P>
+<LI>
+They have been declared on the same line.  (Note:  This is true of the
+GNU Modula-2 compiler, but it may not be true of other compilers.)
+</UL>
+<P>
+As long as type checking is enabled, any attempt to combine variables
+whose types are not equivalent is an error.
+<P>
+Range checking is done on all mathematical operations, assignment, array
+index bounds, and all built-in functions and procedures.
+<P>
+<A NAME="IDX363"></A>
+<A NAME="IDX364"></A>
+<A NAME="IDX365"></A>
+<A NAME="IDX366"></A>
+<H4><A NAME="SEC89" HREF="gdb_toc.html#SEC89">The scope operators <CODE>::</CODE> and <CODE>.</CODE></A></H4>
+<P>
+There are a few subtle differences between the Modula-2 scope operator
+(<CODE>.</CODE>) and the GDB scope operator (<CODE>::</CODE>).  The two have
+similar syntax:
+<P>
+<PRE>
+
+<VAR>module</VAR> . <VAR>id</VAR>
+<VAR>scope</VAR> :: <VAR>id</VAR>
+</PRE>
+<P>
+where <VAR>scope</VAR> is the name of a module or a procedure,
+<VAR>module</VAR> the name of a module, and <VAR>id</VAR> is any declared
+identifier within your program, except another module.
+<P>
+Using the <CODE>::</CODE> operator makes GDB search the scope
+specified by <VAR>scope</VAR> for the identifier <VAR>id</VAR>.  If it is not
+found in the specified scope, then GDB searches all scopes
+enclosing the one specified by <VAR>scope</VAR>.
+<P>
+Using the <CODE>.</CODE> operator makes GDB search the current scope for
+the identifier specified by <VAR>id</VAR> that was imported from the
+definition module specified by <VAR>module</VAR>.  With this operator, it is
+an error if the identifier <VAR>id</VAR> was not imported from definition
+module <VAR>module</VAR>, or if <VAR>id</VAR> is not an identifier in
+<VAR>module</VAR>.
+<P>
+<H4><A NAME="SEC90" HREF="gdb_toc.html#SEC90">GDB and Modula-2</A></H4>
+<P>
+Some GDB commands have little use when debugging Modula-2 programs.
+Five subcommands of <CODE>set print</CODE> and <CODE>show print</CODE> apply
+specifically to C and C++: <SAMP>`vtbl'</SAMP>, <SAMP>`demangle'</SAMP>,
+<SAMP>`asm-demangle'</SAMP>, <SAMP>`object'</SAMP>, and <SAMP>`union'</SAMP>.  The first four
+apply to C++, and the last to the C <CODE>union</CODE> type, which has no direct
+analogue in Modula-2.
+<P>
+The <CODE>@</CODE> operator (see section <A HREF="gdb_10.html#SEC54">Expressions</A>), while available
+while using any language, is not useful with Modula-2.  Its
+intent is to aid the debugging of <DFN>dynamic arrays</DFN>, which cannot be
+created in Modula-2 as they can in C or C++.  However, because an
+address can be specified by an integral constant, the construct
+<SAMP>`{<VAR>type</VAR>}<VAR>adrexp</VAR>'</SAMP> is still useful.  (see section <A HREF="gdb_10.html#SEC54">Expressions</A>)
+<A NAME="IDX367"></A>
+<P>
+In GDB scripts, the Modula-2 inequality operator <CODE>#</CODE> is
+interpreted as the beginning of a comment.  Use <CODE>&#60;&#62;</CODE> instead.
+<P>
+<P>Go to the <A HREF="gdb_10.html">previous</A>, <A HREF="gdb_12.html">next</A> section.<P>

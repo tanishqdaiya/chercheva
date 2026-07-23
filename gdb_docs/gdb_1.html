@@ -1,0 +1,176 @@
+<!-- This HTML file has been created by texi2html 1.30
+     from /afs/.athena/project/gnu/src/gdb-4.14/gdb/doc/gdb.texinfo on 6 July 1995 -->
+
+<TITLE>Debugging with GDB - Summary of GDB</TITLE>
+<P>Go to the <A HREF="gdb_2.html">next</A> section.<P>
+<P>
+Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995
+Free Software Foundation, Inc. 
+<P>
+Published by the Free Software Foundation <BR>
+675 Massachusetts Avenue, <BR>
+Cambridge, MA 02139 USA <BR>
+Printed copies are available for $20 each. <BR>
+ISBN 1-882114-11-6 <BR>
+<P>
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+<P>
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided also that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+<P>
+Permission is granted to copy and distribute translations of this manual
+into another language, under the above conditions for modified versions.
+<P>
+<H1><A NAME="SEC1" HREF="gdb_toc.html#SEC1">Summary of GDB</A></H1>
+<P>
+The purpose of a debugger such as GDB is to allow you to see what is
+going on "inside" another program while it executes--or what another
+program was doing at the moment it crashed.
+<P>
+GDB can do four main kinds of things (plus other things in support of
+these) to help you catch bugs in the act:
+<P>
+<UL>
+<LI>
+Start your program, specifying anything that might affect its behavior.
+<P>
+<LI>
+Make your program stop on specified conditions.
+<P>
+<LI>
+Examine what has happened, when your program has stopped.
+<P>
+<LI>
+Change things in your program, so you can experiment with correcting the
+effects of one bug and go on to learn about another.
+</UL>
+<P>
+You can use GDB to debug programs written in C or C++.
+For more information, see section <A HREF="gdb_11.html#SEC74">C and C++</A>.
+<P>
+Support for Modula-2 and Chill is partial.  For information on Modula-2,
+see section <A HREF="gdb_11.html#SEC82">Modula-2</A>.  There is no further documentation on Chill yet.
+<P>
+Debugging Pascal programs which use sets, subranges, file variables, or nested
+functions does not currently work.  GDB does not support
+entering expressions, printing values, or similar features using Pascal syntax.
+<A NAME="IDX1"></A>
+GDB can be used to debug programs written in Fortran, although
+it does not yet support entering expressions, printing values, or
+similar features using Fortran syntax.  It may be necessary to refer to
+some variables with a trailing underscore.
+<P>
+<H2><A NAME="SEC2" HREF="gdb_toc.html#SEC2">Free software</A></H2>
+<P>
+GDB is <DFN>free software</DFN>, protected by the GNU General Public License
+(GPL).  The GPL gives you the freedom to copy or adapt a licensed
+program--but every person getting a copy also gets with it the
+freedom to modify that copy (which means that they must get access to
+the source code), and the freedom to distribute further copies.
+Typical software companies use copyrights to limit your freedoms; the
+Free Software Foundation uses the GPL to preserve these freedoms.
+<P>
+Fundamentally, the General Public License is a license which says that
+you have these freedoms and that you cannot take these freedoms away
+from anyone else.
+<P>
+<H2><A NAME="SEC3" HREF="gdb_toc.html#SEC3">Contributors to GDB</A></H2>
+<P>
+Richard Stallman was the original author of GDB, and of many other GNU
+programs.  Many others have contributed to its development.  This
+section attempts to credit major contributors.  One of the virtues of
+free software is that everyone is free to contribute to it; with
+regret, we cannot actually acknowledge everyone here.  The file
+<TT>`ChangeLog'</TT> in the GDB distribution approximates a blow-by-blow
+account.
+<P>
+Changes much prior to version 2.0 are lost in the mists of time.
+<P>
+<BLOCKQUOTE>
+<EM>Plea:</EM> Additions to this section are particularly welcome.  If you
+or your friends (or enemies, to be evenhanded) have been unfairly
+omitted from this list, we would like to add your names!
+</BLOCKQUOTE>
+<P>
+So that they may not regard their long labor as thankless, we
+particularly thank those who shepherded GDB through major releases:
+Stan Shebs (release 4.14),
+Fred Fish (releases 4.13, 4.12, 4.11, 4.10, and 4.9),
+Stu Grossman and John Gilmore (releases 4.8, 4.7, 4.6, 4.5, and 4.4),
+John Gilmore (releases 4.3, 4.2, 4.1, 4.0, and 3.9);
+Jim Kingdon (releases 3.5, 3.4, and 3.3);
+and Randy Smith (releases 3.2, 3.1, and 3.0).
+As major maintainer of GDB for some period, each
+contributed significantly to the structure, stability, and capabilities
+of the entire debugger.
+<P>
+Richard Stallman, assisted at various times by Peter TerMaat, Chris
+Hanson, and Richard Mlynarik, handled releases through 2.8.
+<P>
+Michael Tiemann is the author of most of the GNU C++ support in GDB,
+with significant additional contributions from Per Bothner.  James
+Clark wrote the GNU C++ demangler.  Early work on C++ was by Peter
+TerMaat (who also did much general update work leading to release 3.0).
+<P>
+GDB 4 uses the BFD subroutine library to examine multiple
+object-file formats; BFD was a joint project of David V.
+Henkel-Wallace, Rich Pixley, Steve Chamberlain, and John Gilmore.
+<P>
+David Johnson wrote the original COFF support; Pace Willison did
+the original support for encapsulated COFF.
+<P>
+Adam de Boor and Bradley Davis contributed the ISI Optimum V support.
+Per Bothner, Noboyuki Hikichi, and Alessandro Forin contributed MIPS
+support.
+Jean-Daniel Fekete contributed Sun 386i support.
+Chris Hanson improved the HP9000 support.
+Noboyuki Hikichi and Tomoyuki Hasei contributed Sony/News OS 3 support.
+David Johnson contributed Encore Umax support.
+Jyrki Kuoppala contributed Altos 3068 support.
+Jeff Law contributed HP PA and SOM support.
+Keith Packard contributed NS32K support.
+Doug Rabson contributed Acorn Risc Machine support.
+Bob Rusk contributed Harris Nighthawk CX-UX support.
+Chris Smith contributed Convex support (and Fortran debugging).
+Jonathan Stone contributed Pyramid support.
+Michael Tiemann contributed SPARC support.
+Tim Tucker contributed support for the Gould NP1 and Gould Powernode.
+Pace Willison contributed Intel 386 support.
+Jay Vosburgh contributed Symmetry support.
+<P>
+Rich Schaefer and Peter Schauer helped with support of SunOS shared
+libraries.
+<P>
+Jay Fenlason and Roland McGrath ensured that GDB and GAS agree about
+several machine instruction sets.
+<P>
+Patrick Duval, Ted Goldstein, Vikram Koka and Glenn Engel helped
+develop remote debugging.  Intel Corporation and Wind River Systems
+contributed remote debugging modules for their products.
+<P>
+Brian Fox is the author of the readline libraries providing
+command-line editing and command history.
+<P>
+Andrew Beers of SUNY Buffalo wrote the language-switching code,
+the Modula-2 support,
+and contributed the Languages chapter of this manual.
+<P>
+Fred Fish wrote most of the support for Unix System Vr4.  
+He also enhanced the command-completion support to cover C++ overloaded
+symbols.
+<P>
+Hitachi America, Ltd. sponsored the support for Hitachi microprocessors.
+<P>
+Kung Hsu, Jeff Law, and Rick Sladkey added support for hardware
+watchpoints.
+<P>
+Stu Grossman wrote gdbserver.
+<P>
+Jim Kingdon, Peter Schauer, Ian Taylor, and Stu Grossman made
+nearly innumerable bug fixes and cleanups throughout GDB.
+<P>
+<P>Go to the <A HREF="gdb_2.html">next</A> section.<P>
