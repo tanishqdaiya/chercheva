@@ -66,6 +66,16 @@ typedef struct {
     size_t size, alloc;
 } Document_Vector;
 
+typedef struct {
+    size_t doc_index;
+    double score;
+} Result_Pair;
+
+typedef struct {
+    Result_Pair *data;
+    size_t size, alloc;
+} Result_Vector;
+
 /* == UTILS == */
 
 #define FATAL(...)                              \
@@ -109,7 +119,7 @@ typedef struct {
 void to_uppercase(String str)
 {
     for (size_t i = 0; i < str.size; ++i)
-        str.data[i] = (char)toupper(str.data[i]);
+        str.data[i] = (char)toupper((unsigned char)str.data[i]);
 }
 
 bool sv_equal(String_View a, String_View b)
@@ -457,6 +467,20 @@ int load_directory(const char *dirname, Document_Vector *docs)
     return 1;
 }
 
+int result_pair_cmp(const void *a, const void *b)
+{
+    const Result_Pair *ra = a;
+    const Result_Pair *rb = b;
+
+    /* descending */
+    if (ra->score < rb->score)
+        return 1;
+    if (ra->score > rb->score)
+        return -1;
+
+    return 0;
+}
+
 int main()
 {
     Document_Vector docs = { 0 };
@@ -489,9 +513,10 @@ int main()
     /* process queries (very basic, it doesn't even account for cosine
      * similarity */
     String query = { 0 };
-    string_append_cstr(&query, "exit");
+    string_append_cstr(&query, "having gdb infer the source language");
     to_uppercase(query);
 
+    Result_Vector rv = { 0 };
     for (size_t i = 0; i < docs.size; ++i) {
         String_View input = {
             .data = query.data,
@@ -511,11 +536,28 @@ int main()
             score += tf * idf;
         }
 
+        /* skip irrelevant */
         if (score < EPSILON)
             continue;
-        printf("%s -> %.6f\n", docs.data[i].path.data, score);
+
+        Result_Pair rp = {
+            .doc_index = i,
+            .score = score,
+        };
+        
+        vec_append(&rv, rp);
     }
 
+    qsort(rv.data, rv.size, sizeof(*rv.data), result_pair_cmp);
+    for (size_t i = 0; i < rv.size; ++i) {
+        Document *doc = &docs.data[rv.data[i].doc_index];
+        printf("%s -> %.6f\n",
+               doc->path.data,
+               rv.data[i].score);
+    }
+    
+    free(rv.data);
     docs_free(&docs);
+    
     return 0;
 }
