@@ -1,12 +1,18 @@
+#include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
+
+#include <dirent.h>
+#include <sys/stat.h>
 
 #include "lib/lexbor/html/html.h"
 #include "lib/lexbor/dom/dom.h"
+
+#define DOCUMENT_VECINITSZ 1
 
 #define TABLE_INITSZ 16
 #define TABLE_LOADF  0.5
@@ -34,7 +40,27 @@ typedef struct {
     size_t size, alloc;
 } TF_Table;
 
-size_t html_measure(lxb_dom_node_t *node) {
+typedef struct {
+    char *path;
+    char *contents;
+    size_t length;
+
+    TF_Table tf;
+} Document;
+
+typedef struct {
+    Document *docs;
+    size_t size, alloc;
+} Document_Vector;
+
+#define PANIC(...) \
+    do { \
+        fprintf(stderr, __VA_ARGS__); \
+        exit(EXIT_FAILURE); \
+    } while (0)
+
+size_t html_measure(lxb_dom_node_t *node)
+{
     size_t len = 0;
     if (node->type == LXB_DOM_NODE_TYPE_TEXT) {
         size_t n;
@@ -50,7 +76,8 @@ size_t html_measure(lxb_dom_node_t *node) {
     return len;
 }
 
-void html_pack(lxb_dom_node_t *node, char **ptr) {
+void html_pack(lxb_dom_node_t *node, char **ptr)
+{
     if (node->type == LXB_DOM_NODE_TYPE_TEXT) {
         size_t n;
         const char *text = (const char *)lxb_dom_node_text_content(node, &n);
@@ -67,7 +94,8 @@ void html_pack(lxb_dom_node_t *node, char **ptr) {
         html_pack(c, ptr);
 }
 
-char *html_extract(const char *html) {
+char *html_extract(const char *html)
+{
     lxb_html_document_t *doc = lxb_html_document_create();
     lxb_html_document_parse(doc, (lxb_char_t*)html, strlen(html));
 
@@ -252,159 +280,122 @@ void tf_table_insert(TF_Table *table, Term_Frequency tf)
     table->size++;
 }
 
-static void tf_table_print(TF_Table *table)
+int read_file(const char *path, Document *doc)
 {
-    for (size_t i = 0; i < table->alloc; i++) {
-        if (table->tf[i].freq == 0)
-            continue;
+    FILE *fp = fopen(path, "rb");
+    if (!fp)
+        PANIC("%s: could not resolve file path!\n", path);
 
-        printf("%.*s: %ld\n",
-               (int)table->tf[i].term.count,
-               table->tf[i].term.data,
-               table->tf[i].freq);
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    rewind(fp);
+
+    char *content = malloc((size_t)size + 1);
+    if (!content)
+        PANIC("out of memory!\n");
+
+    if (fread(content, 1, (size_t)size, fp) != (size_t)size) {
+        free(content);
+        fclose(fp);
+        return 0;
+    }
+
+    content[size] = '\0';
+    fclose(fp);
+
+    doc->path = strdup(path);
+    doc->contents = content;
+    doc->length = (size_t)size;
+
+    return 1;
+}
+
+static void docs_alloc(Document_Vector *dv, size_t capacity)
+{
+    if (dv->alloc < capacity) {
+        if (dv->alloc == 0)
+            dv->alloc = DOCUMENT_VECINITSZ;
+        while (dv->alloc < capacity)
+            dv->alloc *= 2;
+        dv->docs = realloc(dv->docs, dv->alloc * sizeof(*(dv)->docs));
+        if (!dv->docs)
+            PANIC("out of memory!\n");
     }
 }
 
-int main()
+void doc_free(Document *d)
 {
-    const char *fname = "gdb_docs/gdb_9.html";
+    free(d->path);
+    free(d->contents);
+    free(d->tf.tf);
+}
 
-    FILE *fp = fopen(fname, "rb");
-    if (!fp) {
-        perror(fname);
+void docs_free(Document_Vector *dv)
+{
+    for (size_t i = 0; i < dv->size; ++i)
+        doc_free(&dv->docs[i]);
+
+    free(dv->docs);
+
+    dv->docs = NULL;
+    dv->size = 0;
+    dv->alloc = 0;
+}
+
+void docs_push(Document_Vector *d, Document doc)
+{
+    docs_alloc(d, d->size + 1);
+    d->docs[d->size++] = doc;
+}
+
+int load_directory(const char *dirname, Document_Vector *docs)
+{
+    DIR *dir = opendir(dirname);
+    if (!dir) {
+        perror("unable to open directory");
         exit(EXIT_FAILURE);
     }
 
-    fseek(fp, 0, SEEK_END);
-    long fsize = ftell(fp);
-    rewind(fp);
-
-    char *html_content = malloc(fsize + 1);
-    if (!html_content) {
-        fclose(fp);
-        exit(EXIT_FAILURE);
-    }
-
-    size_t bytes_read = fread(html_content, 1, fsize, fp);
-    html_content[bytes_read] = '\0';
-    fclose(fp);
-
-    char *extracted = html_extract(html_content);
-    if (!extracted) {
-        fprintf(stderr, "html_extract failed\n");
-        free(html_content);
-        exit(EXIT_FAILURE);
-    }
-
-    size_t n = strlen(extracted);
-    to_uppercase(extracted, n);
-
-    TF_Table tf_table = { 0 };
-    String_View corpus = {
-        .data = extracted,
-        .count = n
-    };
-
-    size_t total_tokens = 0;
-
-    for (;;) {
-        String_View token = next_token(&corpus);
-        if (token.count == 0)
-            break;
-
-        total_tokens++;
-
-        Term_Frequency *tf = tf_table_search(&tf_table, token);
-
-        if (!tf) {
-            Term_Frequency new_tf = {
-                .term = token,
-                .freq = 1
-            };
-
-            tf_table_insert(&tf_table, new_tf);
-        } else {
-            tf->freq += 1;
-        }
-    }
-
-    printf("\n--- TF TABLE ---\n");
-
-    for (size_t i = 0; i < tf_table.alloc; i++) {
-        if (tf_table.tf[i].freq == 0)
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
 
-        printf("%.*s: %ld\n",
-               (int)tf_table.tf[i].term.count,
-               tf_table.tf[i].term.data,
-               tf_table.tf[i].freq);
-    }
+        char path[PATH_MAX];
+        snprintf(path, sizeof(path), "%s/%s", dirname, entry->d_name);
 
-    printf("\n--- STATISTICS ---\n");
-
-    printf("tokens seen: %zu\n", total_tokens);
-    printf("unique terms: %zu\n", tf_table.size);
-    printf("table allocation: %zu\n", tf_table.alloc);
-
-    size_t occupied = 0;
-    size_t counted_tokens = 0;
-
-    for (size_t i = 0; i < tf_table.alloc; i++) {
-        if (tf_table.tf[i].freq == 0)
+        struct stat st;
+        if (stat(path, &st) != 0)
             continue;
 
-        occupied++;
-        counted_tokens += tf_table.tf[i].freq;
+        if (!S_ISREG(st.st_mode))
+            continue;
+
+        Document doc = { 0 };
+        if (!read_file(path, &doc))
+            continue;
+
+        docs_push(docs, doc);
     }
 
-    printf("occupied slots: %zu\n", occupied);
-    printf("counted frequencies: %zu\n", counted_tokens);
+    closedir(dir);
+    return 1;
+}
 
-    if (occupied != tf_table.size) {
-        printf("ERROR: size mismatch\n");
-    } else {
-        printf("OK: size matches occupied slots\n");
+int main(void)
+{
+    Document_Vector docs = { 0 };
+    load_directory("gdb_docs", &docs);
+
+    printf("Loaded %zu documents\n", docs.size);
+
+    for (size_t i = 0; i < docs.size; ++i) {
+        printf("%s (%zu bytes)\n",
+               docs.docs[i].path,
+               docs.docs[i].length);
     }
 
-    if (counted_tokens != total_tokens) {
-        printf("ERROR: frequency mismatch\n");
-    } else {
-        printf("OK: frequencies match token count\n");
-    }
-
-    printf("\n--- RANDOM LOOKUP VERIFY ---\n");
-
-
-    String_View verify = {
-        .data = extracted,
-        .count = n
-    };
-
-    size_t missing = 0;
-
-    for (;;) {
-        String_View token = next_token(&verify);
-        if (token.count == 0)
-            break;
-
-        Term_Frequency *tf = tf_table_search(&tf_table, token);
-
-        if (!tf) {
-            printf("Missing: %.*s\n",
-                   (int)token.count,
-                   token.data);
-            missing++;
-        }
-    }
-
-    if (missing == 0)
-        printf("OK: all tokens found\n");
-    else
-        printf("ERROR: %zu missing tokens\n", missing);
-
-    free(tf_table.tf);
-    free(extracted);
-    free(html_content);
-
+    docs_free(&docs);
+    
     return 0;
 }
