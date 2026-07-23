@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,7 +44,9 @@ typedef struct {
 typedef struct {
     char *path;
     char *contents;
-    size_t length;
+    char *text;
+    size_t length; /* for contents */
+    size_t ntokens;
 
     TF_Table tf;
 } Document;
@@ -280,6 +283,26 @@ void tf_table_insert(TF_Table *table, Term_Frequency tf)
     table->size++;
 }
 
+double compute_term_frequency(String_View t, Document d)
+{
+    Term_Frequency *kv = tf_table_search(&d.tf, t);
+    if (!kv)
+        return 0.0;
+    
+    return (double)kv->freq / (1 + d.ntokens);
+}
+
+double compute_inverse_document_frequency(String_View t, Document_Vector dv)
+{
+    long df = 0;
+    for (size_t i = 0; i < dv.size; ++i) {
+        if (tf_table_search(&dv.docs[i].tf, t))
+            df++;
+    }
+
+    return log(1 + (double)dv.size / (1 + df));
+}
+
 int read_file(const char *path, Document *doc)
 {
     FILE *fp = fopen(path, "rb");
@@ -327,6 +350,7 @@ void doc_free(Document *d)
 {
     free(d->path);
     free(d->contents);
+    free(d->text);
     free(d->tf.tf);
 }
 
@@ -389,37 +413,48 @@ int main(void)
 
     printf("Loaded %zu documents\n", docs.size);
 
+    // Build TF_Table for each document
     for (size_t i = 0; i < docs.size; ++i) {
-        printf("\n%s (%zu bytes)\n",
-               docs.docs[i].path,
-               docs.docs[i].length);
-
-        char *text = html_extract(docs.docs[i].contents);
-        to_uppercase(text, strlen(text));
+        docs.docs[i].text = html_extract(docs.docs[i].contents);
+        to_uppercase(docs.docs[i].text, strlen(docs.docs[i].text));
 
         String_View input = {
-            .data = text,
-            .count = strlen(text),
+            .data = docs.docs[i].text,
+            .count = strlen(docs.docs[i].text),
         };
 
         for (;;) {
             String_View token = next_token(&input);
             if (!token.data)
                 break;
+            docs.docs[i].ntokens++;
             tf_table_insert(&docs.docs[i].tf,
                             (Term_Frequency){ .term = token, .freq = 1 });
         }
+    }
 
+    // Compute tf-idf
+    for (size_t i = 0; i < docs.size; ++i) {
+        printf("\n%s (%zu bytes)\n",
+               docs.docs[i].path,
+               docs.docs[i].length);
+        
         for (size_t j = 0; j < docs.docs[i].tf.alloc; ++j) {
             Term_Frequency *tf = &docs.docs[i].tf.tf[j];
 
             if (tf->freq == 0)
                 continue;
 
-            printf("  %.*s -> %ld\n",
+            double term_freq = compute_term_frequency(tf->term, docs.docs[i]);
+            double inv_term_freq = compute_inverse_document_frequency(tf->term, docs);
+            double score = term_freq * inv_term_freq;
+            printf("  %.*s -> %ld, %.4f, %.4f, %.4f\n",
                    (int)tf->term.count,
                    tf->term.data,
-                   tf->freq);
+                   tf->freq,
+                   term_freq,
+                   inv_term_freq,
+                   score);
         }
     }
 

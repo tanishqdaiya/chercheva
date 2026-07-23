@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -ggdb
 CFLAGS += -Ilib
 
-LDFLAGS = lib/liblexbor_static.a
+LDFLAGS = lib/liblexbor_static.a -lm
 
 TARGET = engine
 
