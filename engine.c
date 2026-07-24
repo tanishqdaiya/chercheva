@@ -13,52 +13,32 @@
 #include "lib/lexbor/html/html.h"
 #include "lib/lexbor/dom/dom.h"
 
-#define DOCUMENT_VECINITSZ 32
-#define VECINITSZ 32
+#define TDLIB_IMPLEMENTATION
+#include "tdlib.h"
 
-#define TABLE_INITSZ 64
-#define TABLE_LOADF  0.5
+#define MAP_INITSZ 64
+#define MAP_LOADF  0.5
 
-#define EPSILON 1e-9
-
-#define FNV_PRIME_32 0x01000193U
-#define FNV_OFFSET_BASIS_32 0x811C9DC5U
-
-/*
- * String:
- *  data is either NULL or points in range [0, alloc)
- *  size excludes terminating '\0'
- *  data[size] is always '\0'
- */
-typedef struct {
-    char *data;
-    size_t size, alloc;
-} String;
-
-typedef struct {
-    const char *data;
-    size_t size;
-} String_View;
+#define MIN_SCORE 1e-6
 
 typedef struct {
     String_View term;
-    long freq; /* occupied when freq > 0 */
-} Term_Frequency;
+    s64 freq; /* occupied when freq > 0 */
+} TF_Entry;
 
 typedef struct {
-    Term_Frequency *tf;
+    TF_Entry *data;
     size_t size, alloc;
-} TF_Table;
+} TF_Map;
 
 typedef struct {
     String path;
+
     String content;
-    String text;
+    String text; /* extracted content from supported doc */
 
-    // @Todo Rename
-    size_t ntokens;
-
-    TF_Table tf;
+    TF_Map tf;
+    size_t token_count;
 } Document;
 
 typedef struct {
@@ -68,90 +48,16 @@ typedef struct {
 
 typedef struct {
     size_t doc_index;
-    double score;
-} Result_Pair;
+    f64 score;
+} Search_Result;
 
 typedef struct {
-    Result_Pair *data;
+    Search_Result *data;
     size_t size, alloc;
-} Result_Vector;
+} Search_Result_Vector;
 
 /* == UTILS == */
-
-#define FATAL(...)                              \
-    do {                                        \
-        fprintf(stderr, __VA_ARGS__);           \
-        exit(EXIT_FAILURE);                     \
-    } while (0)
-
-/* It is a resizing function which required the vector in its right structural
-   format and the required capacity. If the capacity exceeds the pre-allocated
-   size of the vector, we resize. This function is unsafe and provides no
-   guaranteed successful reallocation */
-#define vec_alloc(vector, capacity)                                     \
-    do {                                                                \
-        if ((capacity) > (vector)->alloc) {                             \
-            if ((vector)->alloc == 0) (vector)->alloc = VECINITSZ;      \
-            while ((capacity) > (vector)->alloc) (vector)->alloc *= 2;  \
-            (vector)->data = realloc((vector)->data,                    \
-                                     (vector)->alloc * sizeof(*(vector)->data)); \
-            if ((vector)->data == NULL) {                               \
-                FATAL("TD_REALLOC: out of memory");                     \
-            }                                                           \
-        }                                                               \
-    } while (0)
-
-#define vec_append(vector, item)                        \
-    do {                                                \
-        vec_alloc((vector), (vector)->size + 1);        \
-        (vector)->data[(vector)->size++] = (item);      \
-    } while (0)
-
-#define vec_append_bulk(vector, items, count)                   \
-    do {                                                        \
-        vec_alloc((vector), (vector)->size + count);            \
-        memcpy((vector)->data + (vector)->size,                 \
-               (items),                                         \
-               (count)*sizeof(*(vector)->data));                \
-        (vector)->size += (count);                              \
-    } while (0)
-
-void to_uppercase(String str)
-{
-    for (size_t i = 0; i < str.size; ++i)
-        str.data[i] = (char)toupper((unsigned char)str.data[i]);
-}
-
-bool sv_equal(String_View a, String_View b)
-{
-    if (a.size != b.size)
-        return false;
-    for (size_t i = 0; i < a.size; i++) {
-        if (a.data[i] != b.data[i])
-            return false;
-    }
-
-    return true;
-}
-
-void string_append_cstr(String *string, const char *cstr)
-{
-    size_t n = strlen(cstr);
-
-    vec_alloc(string, string->size + n + 1);
-    memcpy(string->data + string->size, cstr, n);
-
-    string->size += n;
-    string->data[string->size] = '\0';
-}
-
-void string_clear(String *string)
-{
-    free(string->data);
-    *string = (String) { 0 };
-}
-
-int read_file(const char *path, Document *doc)
+s8 read_file(const char *path, Document *doc)
 {
     FILE *fp = fopen(path, "rb");
     if (!fp)
@@ -187,7 +93,7 @@ int read_file(const char *path, Document *doc)
 
 /* == HTML EXTRACTION == */
 
-size_t html_measure(lxb_dom_node_t *node)
+size_t html_text_size(lxb_dom_node_t *node)
 {
     size_t len = 0;
     if (node->type == LXB_DOM_NODE_TYPE_TEXT) {
@@ -200,11 +106,11 @@ size_t html_measure(lxb_dom_node_t *node)
     if (node->type == LXB_DOM_NODE_TYPE_ELEMENT) len += 1;
 
     for (lxb_dom_node_t *c = lxb_dom_node_first_child(node); c; c = lxb_dom_node_next(c))
-        len += html_measure(c);
+        len += html_text_size(c);
     return len;
 }
 
-void html_pack(lxb_dom_node_t *node, char **ptr)
+void html_write_text(lxb_dom_node_t *node, char **ptr)
 {
     if (node->type == LXB_DOM_NODE_TYPE_TEXT) {
         size_t n;
@@ -219,7 +125,7 @@ void html_pack(lxb_dom_node_t *node, char **ptr)
     }
 
     for (lxb_dom_node_t *c = lxb_dom_node_first_child(node); c; c = lxb_dom_node_next(c))
-        html_pack(c, ptr);
+        html_write_text(c, ptr);
 }
 
 char *html_extract(const char *html)
@@ -231,7 +137,7 @@ char *html_extract(const char *html)
     const char *title = (const char*)lxb_html_document_title(doc, &n_title);
 
     lxb_dom_node_t *body = lxb_dom_interface_node(doc->body);
-    size_t n_body = html_measure(body);
+    size_t n_body = html_text_size(body);
 
     char *buf = malloc(n_title + 1 + n_body + 1);
     char *p = buf;
@@ -240,7 +146,7 @@ char *html_extract(const char *html)
     p += n_title;
     *p++ = '\n';
 
-    html_pack(body, &p);
+    html_write_text(body, &p);
     *p = 0;
 
     lxb_html_document_destroy(doc);
@@ -304,123 +210,112 @@ String_View next_token(String_View *corpus)
 }
 
 /* == TF TABLE == */
-
-uint32_t tf_table_hash(String_View sv)
+TF_Entry *tf_lookup(const TF_Map *map, String_View term)
 {
-    uint32_t hash = FNV_OFFSET_BASIS_32;
-    for (size_t i = 0; i < sv.size; ++i) {
-        hash ^= (uint8_t)sv.data[i];
-        hash *= FNV_PRIME_32;
-    }
-    return hash;
-}
-
-Term_Frequency *tf_table_search(TF_Table *table, String_View term)
-{
-    if (table->alloc == 0)
+    if (map->alloc == 0)
         return NULL;
 
-    size_t start = tf_table_hash(term) % table->alloc;
+    size_t start = sv_hash(term) % map->alloc;
     size_t index = start;
 
     do {
-        if (table->tf[index].freq <= 0)
+        if (map->data[index].freq <= 0)
             return NULL;
 
-        if (sv_equal(table->tf[index].term, term))
-            return &table->tf[index];
+        if (td_sv_equal(map->data[index].term, term))
+            return &map->data[index];
 
-        index = (index + 1) % table->alloc;
+        index = (index + 1) % map->alloc;
     } while (index != start);   /* keep probing until we wrap back to the start */
 
     return NULL;
 }
 
-void tf_table_rehash(TF_Table *table, size_t needed)
+void tf_rehash(TF_Map *map, size_t needed)
 {
-    size_t alloc = table->alloc;
+    size_t alloc = map->alloc;
 
     if (alloc == 0)
-        alloc = TABLE_INITSZ;
+        alloc = MAP_INITSZ;
 
-    while ((double)needed/alloc > TABLE_LOADF)
+    while ((f64)needed/alloc > MAP_LOADF)
         alloc *= 2;
 
-    if (alloc == table->alloc)
+    if (alloc == map->alloc)
         return;
 
-    Term_Frequency *old_tf = table->tf;
-    size_t old_alloc = table->alloc;
+    TF_Entry *old_tf = map->data;
+    size_t old_alloc = map->alloc;
 
-    Term_Frequency *new_tf = calloc(alloc, sizeof(*new_tf));
+    TF_Entry *new_tf = calloc(alloc, sizeof(*new_tf));
     if (!new_tf)
-        FATAL("tf_table_rehash: out of memory\n");
+        TD_FATAL("tf_rehash: out of memory\n");
 
-    table->tf = new_tf;
-    table->alloc = alloc;
+    map->data = new_tf;
+    map->alloc = alloc;
 
     for (size_t i = 0; i < old_alloc; ++i) {
         if (old_tf[i].freq <= 0)
             continue;
 
         /* @Todo hash cachable */
-        size_t index = tf_table_hash(old_tf[i].term) % table->alloc;
-        while (table->tf[index].freq != 0)
-            index = (index + 1) % table->alloc;
-        table->tf[index] = old_tf[i];
+        size_t index = sv_hash(old_tf[i].term) % map->alloc;
+        while (map->data[index].freq != 0)
+            index = (index + 1) % map->alloc;
+        map->data[index] = old_tf[i];
     }
 
     free(old_tf);
 }
 
-void tf_table_insert(TF_Table *table, Term_Frequency tf)
+void tf_insert(TF_Map *map, TF_Entry tf)
 {
-    tf_table_rehash(table, table->size + 1);
+    tf_rehash(map, map->size + 1);
 
-    size_t index = tf_table_hash(tf.term) % table->alloc;
+    size_t index = sv_hash(tf.term) % map->alloc;
 
-    while (table->tf[index].freq != 0) {
-        if (sv_equal(table->tf[index].term, tf.term)) {
-            table->tf[index].freq += tf.freq;
+    while (map->data[index].freq != 0) {
+        if (td_sv_equal(map->data[index].term, tf.term)) {
+            map->data[index].freq += tf.freq;
             return;
         }
 
-        index = (index + 1) % table->alloc;
+        index = (index + 1) % map->alloc;
     }
 
-    table->tf[index] = tf;
-    table->size++;
+    map->data[index] = tf;
+    map->size++;
 }
 
 /* == TF-IDF == */
 
-double compute_term_frequency(String_View t, Document d)
+f64 tf_weight(String_View term, const Document *d)
 {
-    Term_Frequency *kv = tf_table_search(&d.tf, t);
-    if (!kv)
+    TF_Entry *entry = tf_lookup(&d->tf, term);
+    if (!entry)
         return 0.0;
 
-    return log(1 + kv->freq);
+    return log(1 + entry->freq);
 }
 
-double compute_inverse_document_frequency(String_View t, Document_Vector dv)
+f64 idf_weight(String_View term, Document_Vector docs)
 {
-    long df = 0;
-    for (size_t i = 0; i < dv.size; ++i) {
-        if (tf_table_search(&dv.data[i].tf, t))
+    size_t df = 0;
+    for (size_t i = 0; i < docs.size; ++i) {
+        if (tf_lookup(&docs.data[i].tf, term))
             df++;
     }
 
-    return log(1 + (double)dv.size / (1 + df));
+    return log(1 + (f64)docs.size / (1 + df));
 }
 
 /* == DOCUMENT VECTOR == */
 void doc_free(Document *d)
 {
-    string_clear(&d->path);
-    string_clear(&d->content);
+    td_string_clear(&d->path);
+    td_string_clear(&d->content);
     free(d->text.data);
-    free(d->tf.tf);
+    free(d->tf.data);
 }
 
 void docs_free(Document_Vector *dv)
@@ -435,7 +330,7 @@ void docs_free(Document_Vector *dv)
     dv->alloc = 0;
 }
 
-int load_directory(const char *dirname, Document_Vector *docs)
+s8 load_documents_from_dir(const char *dirname, Document_Vector *docs)
 {
     DIR *dir = opendir(dirname);
     if (!dir)
@@ -460,7 +355,7 @@ int load_directory(const char *dirname, Document_Vector *docs)
         if (!read_file(path, &doc))
             continue;
 
-        vec_append(docs, doc);
+        td_vec_append(docs, doc);
     }
 
     closedir(dir);
@@ -470,46 +365,44 @@ int load_directory(const char *dirname, Document_Vector *docs)
 /* == SEARCHING & INDEXING == */
 
 
-Result_Vector search(Document_Vector docs, String query)
+Search_Result_Vector search(Document_Vector docs, String query)
 {
-    Result_Vector rv = { 0 };
+    Search_Result_Vector results = { 0 };
     for (size_t i = 0; i < docs.size; ++i) {
         String_View input = {
             .data = query.data,
             .size = query.size,
         };
 
-        double score = 0.0;
+        f64 score = 0.0;
 
         for (;;) {
             String_View token = next_token(&input);
             if (!token.data)
                 break;
 
-            double tf = compute_term_frequency(token, docs.data[i]);
-            double idf = compute_inverse_document_frequency(token, docs);
+            f64 tf = tf_weight(token, &docs.data[i]);
+            f64 idf = idf_weight(token, docs);
 
             score += tf * idf;
         }
 
         /* skip irrelevant */
-        if (score < EPSILON)
+        if (score < MIN_SCORE)
             continue;
 
-        Result_Pair rp = {
-            .doc_index = i,
-            .score = score,
-        };
-
-        vec_append(&rv, rp);
+        td_vec_append(&results, ((Search_Result) {
+                    .doc_index = i,
+                    .score = score,
+                }));
     }
-    return rv;
+    return results;
 }
 
-int result_pair_cmp(const void *a, const void *b)
+s32 search_result_cmp(const void *a, const void *b)
 {
-    const Result_Pair *ra = a;
-    const Result_Pair *rb = b;
+    const Search_Result *ra = a;
+    const Search_Result *rb = b;
 
     /* descending */
     if (ra->score < rb->score)
@@ -524,7 +417,7 @@ int main()
 {
     Document_Vector docs = { 0 };
 
-    load_directory("gdb_docs", &docs);
+    load_documents_from_dir("gdb_docs", &docs);
     printf("Loaded %zu documents\n", docs.size);
 
     /* build term frequency table for each document */
@@ -532,7 +425,7 @@ int main()
         Document *d = &docs.data[i];
         d->text.data = html_extract(d->content.data);
         d->text.size = strlen(d->text.data);
-        to_uppercase(d->text);
+        td_string_toupper(d->text);
 
         String_View input = {
             .data = d->text.data,
@@ -543,29 +436,29 @@ int main()
             String_View token = next_token(&input);
             if (!token.data)
                 break;
-            d->ntokens++;
-            tf_table_insert(&d->tf,
-                            (Term_Frequency){ .term = token, .freq = 1 });
+            d->token_count++;
+            tf_insert(&d->tf,
+                      (TF_Entry){ .term = token, .freq = 1 });
         }
     }
 
     /* process queries (very basic, it doesn't even account for cosine
      * similarity */
     String query = { 0 };
-    string_append_cstr(&query, "having gdb infer the source language");
-    to_uppercase(query);
+    td_string_append_cstr(&query, "active targets");
+    td_string_toupper(query);
 
-    Result_Vector rv = search(docs, query);
+    Search_Result_Vector results = search(docs, query);
 
-    qsort(rv.data, rv.size, sizeof(*rv.data), result_pair_cmp);
-    for (size_t i = 0; i < rv.size; ++i) {
-        Document *doc = &docs.data[rv.data[i].doc_index];
+    qsort(results.data, results.size, sizeof(*results.data), search_result_cmp);
+    for (size_t i = 0; i < results.size; ++i) {
+        Document *doc = &docs.data[results.data[i].doc_index];
         printf("%s -> %.6f\n",
                doc->path.data,
-               rv.data[i].score);
+               results.data[i].score);
     }
 
-    free(rv.data);
+    free(results.data);
     docs_free(&docs);
 
     return 0;
