@@ -10,7 +10,8 @@ Third-Party Libraries
 This project contains third-party software.
 
 - Lexbor is the property of its respective copyright holders.
-- See LICENSE included with Lexbor for its licensing terms and
+- cJSON is the property of its respective copyright holders.
+- See LICENSE included with the libraries in lib for their licensing terms and
   conditions.
 
 All trademarks and copyrights belong to their respective owners.

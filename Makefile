@@ -6,7 +6,7 @@ LDFLAGS = lib/liblexbor_static.a -lm
 
 TARGET = engine
 
-SRCS = $(wildcard *.c)
+SRCS = $(wildcard *.c) lib/cJSON/cJSON.c
 OBJS = $(SRCS:.c=.o)
 
 all: $(TARGET)

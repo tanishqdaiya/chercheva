@@ -109,6 +109,7 @@ TD_LIBDEF void td_string_toupper(String str);
 TD_LIBDEF bool td_sv_equal(String_View a, String_View b);
 TD_LIBDEF void td_string_append_cstr(String *string, const char *cstr);
 TD_LIBDEF void td_string_clear(String *string);
+TD_LIBDEF char *td_sv_to_cstr(String_View sv);
 
 #endif /* TDLIB_H */
 
@@ -152,7 +153,7 @@ TD_LIBDEF void td_string_clear(String *string)
 }
 
 /* fnv1a */
-TD_LIBDEF u32 sv_hash(String_View sv)
+TD_LIBDEF u32 td_sv_hash(String_View sv)
 {
     u32 hash = FNV_OFFSET_BASIS_32;
     for (size_t i = 0; i < sv.size; ++i) {
@@ -160,6 +161,17 @@ TD_LIBDEF u32 sv_hash(String_View sv)
         hash *= FNV_PRIME_32;
     }
     return hash;
+}
+
+TD_LIBDEF char *td_sv_to_cstr(String_View sv)
+{
+    char *s = malloc(sv.size + 1);
+    if (!s)
+        return NULL;
+
+    memcpy(s, sv.data, sv.size);
+    s[sv.size] = '\0';
+    return s;
 }
 
 #endif /* TDLIB_IMPLEMENTATION */

@@ -13,6 +13,8 @@
 #include "lib/lexbor/html/html.h"
 #include "lib/lexbor/dom/dom.h"
 
+#include "lib/cJSON/cJSON.h"
+
 #define TDLIB_IMPLEMENTATION
 #include "tdlib.h"
 
@@ -55,43 +57,6 @@ typedef struct {
     Search_Result *data;
     size_t size, alloc;
 } Search_Result_Vector;
-
-/* == UTILS == */
-s8 read_file(const char *path, Document *doc)
-{
-    FILE *fp = fopen(path, "rb");
-    if (!fp)
-        return 0;
-
-    fseek(fp, 0, SEEK_END);
-    long size = ftell(fp);
-    rewind(fp);
-
-    char *content = malloc((size_t)size + 1);
-    if (!content)
-        return 0;
-
-    if (fread(content, 1, (size_t)size, fp) != (size_t)size) {
-        free(content);
-        fclose(fp);
-        return 0;
-    }
-
-    content[size] = '\0';
-    fclose(fp);
-
-    doc->path.data = strdup(path);
-    doc->path.size = strlen(path);
-    doc->content = (String) {
-        .data = content,
-        .size = size,
-        .alloc = size + 1,
-    };
-
-    return 1;
-}
-
-/* == HTML EXTRACTION == */
 
 size_t html_text_size(lxb_dom_node_t *node)
 {
@@ -153,8 +118,6 @@ char *html_extract(const char *html)
     return buf;
 }
 
-/* == LEXER == */
-
 String_View next_token(String_View *corpus)
 {
     // trim left
@@ -209,13 +172,12 @@ String_View next_token(String_View *corpus)
     return token;
 }
 
-/* == TF TABLE == */
 TF_Entry *tf_lookup(const TF_Map *map, String_View term)
 {
     if (map->alloc == 0)
         return NULL;
 
-    size_t start = sv_hash(term) % map->alloc;
+    size_t start = td_sv_hash(term) % map->alloc;
     size_t index = start;
 
     do {
@@ -259,7 +221,7 @@ void tf_rehash(TF_Map *map, size_t needed)
             continue;
 
         /* @Todo hash cachable */
-        size_t index = sv_hash(old_tf[i].term) % map->alloc;
+        size_t index = td_sv_hash(old_tf[i].term) % map->alloc;
         while (map->data[index].freq != 0)
             index = (index + 1) % map->alloc;
         map->data[index] = old_tf[i];
@@ -272,7 +234,7 @@ void tf_insert(TF_Map *map, TF_Entry tf)
 {
     tf_rehash(map, map->size + 1);
 
-    size_t index = sv_hash(tf.term) % map->alloc;
+    size_t index = td_sv_hash(tf.term) % map->alloc;
 
     while (map->data[index].freq != 0) {
         if (td_sv_equal(map->data[index].term, tf.term)) {
@@ -286,8 +248,6 @@ void tf_insert(TF_Map *map, TF_Entry tf)
     map->data[index] = tf;
     map->size++;
 }
-
-/* == TF-IDF == */
 
 f64 tf_weight(String_View term, const Document *d)
 {
@@ -309,7 +269,6 @@ f64 idf_weight(String_View term, Document_Vector docs)
     return log(1 + (f64)docs.size / (1 + df));
 }
 
-/* == DOCUMENT VECTOR == */
 void doc_free(Document *d)
 {
     td_string_clear(&d->path);
@@ -330,7 +289,41 @@ void docs_free(Document_Vector *dv)
     dv->alloc = 0;
 }
 
-s8 load_documents_from_dir(const char *dirname, Document_Vector *docs)
+int read_file(const char *path, Document *doc)
+{
+    FILE *fp = fopen(path, "rb");
+    if (!fp)
+        return 0;
+
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    rewind(fp);
+
+    char *content = malloc((size_t)size + 1);
+    if (!content)
+        return 0;
+
+    if (fread(content, 1, (size_t)size, fp) != (size_t)size) {
+        free(content);
+        fclose(fp);
+        return 0;
+    }
+
+    content[size] = '\0';
+    fclose(fp);
+
+    doc->path.data = strdup(path);
+    doc->path.size = strlen(path);
+    doc->content = (String) {
+        .data = content,
+        .size = size,
+        .alloc = size + 1,
+    };
+
+    return 1;
+}
+
+int load_documents_from_dir(const char *dirname, Document_Vector *docs)
 {
     DIR *dir = opendir(dirname);
     if (!dir)
@@ -361,9 +354,6 @@ s8 load_documents_from_dir(const char *dirname, Document_Vector *docs)
     closedir(dir);
     return 1;
 }
-
-/* == SEARCHING & INDEXING == */
-
 
 Search_Result_Vector search(Document_Vector docs, String query)
 {
@@ -413,16 +403,11 @@ s32 search_result_cmp(const void *a, const void *b)
     return 0;
 }
 
-int main()
+void index_documents(Document_Vector *docs)
 {
-    Document_Vector docs = { 0 };
-
-    load_documents_from_dir("gdb_docs", &docs);
-    printf("Loaded %zu documents\n", docs.size);
-
     /* build term frequency table for each document */
-    for (size_t i = 0; i < docs.size; ++i) {
-        Document *d = &docs.data[i];
+    for (size_t i = 0; i < docs->size; ++i) {
+        Document *d = &docs->data[i];
         d->text.data = html_extract(d->content.data);
         d->text.size = strlen(d->text.data);
         td_string_toupper(d->text);
@@ -441,15 +426,78 @@ int main()
                       (TF_Entry){ .term = token, .freq = 1 });
         }
     }
+}
+
+// @Cleanup: Manage alloc/free better
+int save_index_as_json(Document_Vector docs, const char *path)
+{
+    cJSON *root = cJSON_CreateObject();
+    if (!root)
+        goto end;
+
+    for (size_t i = 0; i < docs.size; ++i) {
+        cJSON  *doc = cJSON_CreateObject();
+        if (!doc)
+            goto end;
+        cJSON_AddItemToObject(root, path, doc);
+
+        for (size_t j = 0; j < docs.data[i].tf.alloc; ++j) {
+            TF_Entry *entry = &docs.data[i].tf.data[j];
+            if (entry->freq <= 0)
+                continue;
+
+            // @Cleanup Probably better to use start and end index since we're storing
+            // data anyways.  But all this needs to be reworked anyways.  This,
+            // at its current state is horrible.
+            char *term = td_sv_to_cstr(entry->term);
+            if (!term)
+                goto end;
+            
+            cJSON_AddNumberToObject(doc, term, entry->freq);
+        }
+    }
+
+    char *json = cJSON_PrintUnformatted(root);
+    if (!json) {
+        fprintf(stderr, "Failed to generate json");
+        goto end;
+    }
+
+    FILE *fp = fopen(path, "w");
+    if (!fp) {
+        free(json);
+        goto end;
+    }
+
+    fputs(json, fp);
+    fclose(fp);
+    free(json);
+    
+    return 1;
+
+end:
+    cJSON_Delete(root);
+    return 0;
+}
+
+int main()
+{
+    Document_Vector docs = { 0 };
+
+    if (load_documents_from_dir("gdb_docs", &docs))
+        printf("Loaded %zu documents\n", docs.size);
+
+    index_documents(&docs);
+
+    save_index_as_json(docs, "index.json");
 
     /* process queries (very basic, it doesn't even account for cosine
-     * similarity */
+     * similarity) */
     String query = { 0 };
-    td_string_append_cstr(&query, "active targets");
+    td_string_append_cstr(&query, "configure");
     td_string_toupper(query);
 
     Search_Result_Vector results = search(docs, query);
-
     qsort(results.data, results.size, sizeof(*results.data), search_result_cmp);
     for (size_t i = 0; i < results.size; ++i) {
         Document *doc = &docs.data[results.data[i].doc_index];
