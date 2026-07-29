@@ -65,7 +65,7 @@ typedef struct {
     size_t size;
 } String_View;
 
-#ifndef TD_PANIC
+#ifndef TD_FATAL
 #define TD_FATAL(...)                           \
     do {                                        \
         fprintf(stderr, __VA_ARGS__);           \
@@ -110,6 +110,7 @@ TD_LIBDEF bool td_sv_equal(String_View a, String_View b);
 TD_LIBDEF void td_string_append_cstr(String *string, const char *cstr);
 TD_LIBDEF void td_string_clear(String *string);
 TD_LIBDEF char *td_sv_to_cstr(String_View sv);
+TD_LIBDEF int td_read_entire_file(String *str, const char *path);
 
 #endif /* TDLIB_H */
 
@@ -172,6 +173,36 @@ TD_LIBDEF char *td_sv_to_cstr(String_View sv)
     memcpy(s, sv.data, sv.size);
     s[sv.size] = '\0';
     return s;
+}
+
+TD_LIBDEF int td_read_entire_file(String *str, const char *path)
+{
+    FILE *fp = fopen(path, "rb");
+    if (!fp)
+        return 0;
+
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    rewind(fp);
+
+    char *content = TD_MALLOC((size_t)size + 1);
+    if (!content)
+        return 0;
+
+    if (fread(content, 1, (size_t)size, fp) != (size_t)size) {
+        free(content);
+        fclose(fp);
+        return 0;
+    }
+
+    content[size] = '\0'; // @Think whether this is needed
+    fclose(fp);
+
+    str->data = content;
+    str->size = size;
+    str->alloc = size + 1;
+
+    return 1;
 }
 
 #endif /* TDLIB_IMPLEMENTATION */

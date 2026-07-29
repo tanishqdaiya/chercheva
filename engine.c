@@ -291,34 +291,13 @@ void docs_free(Document_Vector *dv)
 
 int read_file(const char *path, Document *doc)
 {
-    FILE *fp = fopen(path, "rb");
-    if (!fp)
-        return 0;
-
-    fseek(fp, 0, SEEK_END);
-    long size = ftell(fp);
-    rewind(fp);
-
-    char *content = malloc((size_t)size + 1);
-    if (!content)
-        return 0;
-
-    if (fread(content, 1, (size_t)size, fp) != (size_t)size) {
-        free(content);
-        fclose(fp);
-        return 0;
-    }
-
-    content[size] = '\0';
-    fclose(fp);
-
+    String content = { 0 };
+    if (td_read_entire_file(&content, path) == 0)
+        TD_FATAL("td_read_entire_file: error reading file\n");
+    
     doc->path.data = strdup(path);
     doc->path.size = strlen(path);
-    doc->content = (String) {
-        .data = content,
-        .size = size,
-        .alloc = size + 1,
-    };
+    doc->content = content;
 
     return 1;
 }
@@ -439,7 +418,7 @@ int save_index_as_json(Document_Vector docs, const char *path)
         cJSON  *doc = cJSON_CreateObject();
         if (!doc)
             goto end;
-        cJSON_AddItemToObject(root, path, doc);
+        cJSON_AddItemToObject(root, docs.data[i].path.data, doc);
 
         for (size_t j = 0; j < docs.data[i].tf.alloc; ++j) {
             TF_Entry *entry = &docs.data[i].tf.data[j];
@@ -479,6 +458,29 @@ end:
     cJSON_Delete(root);
     return 0;
 }
+
+// Assumes the file exists
+#if 0
+int load_index_from_json(Document_Vector docs, const char *path)
+{
+    String content = { 0 };
+    if (td_read_entire_file(&content, path) == 0)
+        TD_FATAL("load_index_from_json: failed to read file\n");
+
+    cJSON *root = cJSON_Parse(content->data);
+    if (!root)
+        goto end;
+
+    cJSON *path_obj = cJSON_GetObjectItemCaseSensitive(root, path);
+    if (cJSON_IsObject(path_obj)) {
+        cJSON *item = cJSON_GetObjectItemCaseSensitive(pathObj, "some string");
+    }
+
+end:
+    cJSON_Delete(root);
+    return 0;
+}
+#endif
 
 int main()
 {
