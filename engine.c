@@ -238,21 +238,42 @@ int main(void)
         load_doc_from_json(&docs, INDEX_FPATH);
     }
 
-    String query = { 0 };
-    td_string_append_cstr(&query, "step into");
-    td_string_toupper(query);
+    while (1) {
+        char input[1024];
 
-    Search_Result_Vector results = search(docs, query);
-    qsort(results.data, results.size, sizeof(*results.data), search_result_cmp);
+        printf("Enter query: ");
+        fflush(stdout);
 
-    for (size_t i = 0; i < results.size; ++i) {
-        Document *doc = &docs.data[results.data[i].doc_index];
-        printf("[%02zu] %-24s %.6f\n",
-               i + 1, doc->path.data, results.data[i].score);
+        if (!fgets(input, sizeof(input), stdin))
+            break;
+        input[strcspn(input, "\n")] = '\0';
+        
+        String query = td_string_from_cstr(input);
+        td_string_toupper(query);
+
+        printf("Showing search results for \"%s\"\n", query.data);
+        
+        Search_Result_Vector results = search(docs, query);
+        qsort(results.data, results.size, sizeof(*results.data), search_result_cmp);
+
+        for (size_t i = 0; i < results.size; ++i) {
+            Document *doc = &docs.data[results.data[i].doc_index];
+            printf("[%02zu] \033]8;;file://%s\033\\%-24s\033]8;;\033\\ %.6f\n",
+                   i + 1,
+                   doc->path.data,
+                   doc->path.data,
+                   results.data[i].score);
+
+            //printf("[%02zu] %-24s %.6f\n",
+            //i + 1, doc->path.data, results.data[i].score);
+        }
+
+        td_string_clear(&query);
+        free(results.data);
     }
 
-    free(results.data);
     //docs_free(&docs);
         
     return 0;
 }
+
