@@ -113,6 +113,7 @@ TD_LIBDEF char *td_sv_to_cstr(String_View sv);
 TD_LIBDEF int td_read_entire_file(String *str, const char *path);
 TD_LIBDEF u32 td_sv_hash(String_View sv);
 TD_LIBDEF String td_string_from_cstr(const char *cstr);
+TD_LIBDEF void td_string_append(String *string, const char *data, size_t size);
 
 #ifdef TDLIB_IMPLEMENTATION
 
@@ -223,6 +224,16 @@ TD_LIBDEF String td_string_from_cstr(const char *cstr)
     memcpy(result.data, cstr, result.size + 1);
     
     return result;
+}
+
+TD_LIBDEF void td_string_append(String *string, const char *data, size_t size)
+{
+    td__vec_alloc(string, string->size + size + 1);
+
+    memcpy(string->data + string->size, data, size);
+
+    string->size += size;
+    string->data[string->size] = '\0';
 }
 
 #endif /* TDLIB_IMPLEMENTATION */
